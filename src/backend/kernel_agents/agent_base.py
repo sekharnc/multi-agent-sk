@@ -156,7 +156,8 @@ class BaseAgent(AzureAIAgent):
             # chat_history = self._chat_history.copy()
 
             # Call the agent to handle the action
-            thread = None
+            #thread = None
+            thread = AzureAIAgentThread(client=self.client)
             # thread = self.client.agents.get_thread(
             #     thread=step.session_id
             # )  # AzureAIAgentThread(thread_id=step.session_id)

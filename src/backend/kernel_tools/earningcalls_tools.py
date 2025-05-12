@@ -16,21 +16,21 @@ class EarningCallsTools:
 
     formatting_instructions = "Instructions: returning the output of this function call verbatim to the user in markdown. Then write AGENT SUMMARY: and then include a summary of what you did."
     agent_name = AgentType.EARNINGCALLS.value
+    latestEarnings = None
 
     # Define Company Analyst tools (functions)
     @staticmethod
     @kernel_function(description="get a earning call's transcript for a company")
     async def get_earning_calls_transcript(ticker_symbol: str, year:str) -> str:
-        global latestEarnings
         print("Calling get_earning_calls_transcript")
         if year is None or year == "latest":
             year = datetime.now().year
             if datetime.now().month < 3:
                 year = int(year) - 1
 
-        if latestEarnings is None or len(latestEarnings) == 0:
+        if EarningCallsTools.latestEarnings is None or len(EarningCallsTools.latestEarnings) == 0:
             #latestEarnings = fmpUtils.get_earning_calls(ticker_symbol, year)
-            latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
+            EarningCallsTools.latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
         return (
             f"##### Get Earning Calls\n"
             f"{EarningCallsTools.formatting_instructions}"
@@ -39,13 +39,12 @@ class EarningCallsTools:
     @staticmethod
     @kernel_function(description="summarize the earning call's transcript for a company")
     async def summarize_transcripts(ticker_symbol:str, year:str) -> str:
-        global latestEarnings
-        if latestEarnings is None or len(latestEarnings) == 0:
+        if EarningCallsTools.latestEarnings is None or len(latestEarnings) == 0:
             #latestEarnings = fmpUtils.get_earning_calls(ticker_symbol, year)
-            latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
+            EarningCallsTools.latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
         print("*"*35)
         print("Calling summarize_transcripts")
-        summarized = summarize(latestEarnings)
+        summarized = summarize(EarningCallsTools.latestEarnings)
         print("*"*35)
         return (
             f"##### Summarized transcripts\n"
@@ -57,13 +56,12 @@ class EarningCallsTools:
     @staticmethod
     @kernel_function(description="From the extracted earning call's transcript, identify the management's positive outlook for a company")
     async def management_positive_outlook(ticker_symbol: str, year:str) -> str:
-        global latestEarnings
-        if latestEarnings is None or len(latestEarnings) == 0:
+        if EarningCallsTools.latestEarnings is None or len(EarningCallsTools.latestEarnings) == 0:
             #latestEarnings = fmpUtils.get_earning_calls(ticker_symbol, year)
-            latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
+            EarningCallsTools.latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
         print("*"*35)
         print("Calling management_positive_outlook")
-        positiveOutlook = summarizeTopic(latestEarnings, 'Management Positive Outlook')
+        positiveOutlook = summarizeTopic(EarningCallsTools.latestEarnings, 'Management Positive Outlook')
         print("*"*35)
         return (
             f"##### Management Positive Outlook\n"
@@ -75,13 +73,12 @@ class EarningCallsTools:
     @staticmethod
     @kernel_function(description="From the extracted earning call's transcript, identify the management's negative outlook for a company")
     async def management_negative_outlook(ticker_symbol: str, year:str) -> str:
-        global latestEarnings
-        if latestEarnings is None or len(latestEarnings) == 0:
+        if EarningCallsTools.latestEarnings is None or len(EarningCallsTools.latestEarnings) == 0:
             #latestEarnings = fmpUtils.get_earning_calls(ticker_symbol, year)
-            latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
+            EarningCallsTools.latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
         print("*"*35)
         print("Calling management_negative_outlook")
-        negativeOutlook = summarizeTopic(latestEarnings, 'Management Negative Outlook')
+        negativeOutlook = summarizeTopic(EarningCallsTools.latestEarnings, 'Management Negative Outlook')
         print("*"*35)
         years = 4
         return (
@@ -94,13 +91,12 @@ class EarningCallsTools:
     @staticmethod
     @kernel_function(description="From the extracted earning call's transcript, identify the future growth and opportunities for a company")
     async def future_growth_opportunity(ticker_symbol: str, year:str) -> str:
-        global latestEarnings
-        if latestEarnings is None or len(latestEarnings) == 0:
+        if EarningCallsTools.latestEarnings is None or len(EarningCallsTools.latestEarnings) == 0:
             #latestEarnings = fmpUtils.get_earning_calls(ticker_symbol, year)
-            latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
+            EarningCallsTools.latestEarnings = DcfUtils.get_earning_calls(ticker_symbol)
         print("*"*35)
         print("Calling management_negative_outlook")
-        futureGrowth = summarizeTopic(latestEarnings, 'Future Growth Opportunities')
+        futureGrowth = summarizeTopic(EarningCallsTools.latestEarnings, 'Future Growth Opportunities')
         print("*"*35)
         return (
             f"##### Future Growth and Opportunities\n"

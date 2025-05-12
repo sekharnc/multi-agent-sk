@@ -178,14 +178,24 @@ class AgentFactory:
             # Create the agent definition using the AIProjectClient (project-based pattern)
             # For GroupChatManager, create a definition with minimal configuration
             if client is not None:
-
-                definition = await client.agents.create_agent(
-                    model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
-                    name=agent_type_str,
-                    instructions=system_message,
-                    temperature=temperature,
-                    response_format=response_format,  # Add response_format if required
-                )
+                agent_id = None
+                found_agent = False
+                agent_list = await client.agents.list_agents()
+                for agent in agent_list.data:
+                    if agent.name == agent_type_str:
+                        agent_id = agent.id
+                        found_agent = True
+                        break
+                if found_agent:
+                    definition = await client.agents.get_agent(agent_id)
+                else:
+                    definition = await client.agents.create_agent(
+                        model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
+                        name=agent_type_str,
+                        instructions=system_message,
+                        temperature=temperature,
+                        response_format=response_format,  # Add response_format if required
+                    )
                 logger.info(
                     f"Successfully created agent definition for {agent_type_str}"
                 )

@@ -259,14 +259,25 @@ class AppConfig:
             #             f"Unexpected error while retrieving agent {agent_name}: {str(e)}. Attempting to create new agent."
             #         )
 
-            # Create the agent using the project client with the agent_name as both name and assistantId
-            agent_definition = await client.agents.create_agent(
-                model=self.AZURE_OPENAI_DEPLOYMENT_NAME,
-                name=agent_name,
-                instructions=instructions,
-                temperature=temperature,
-                response_format=response_format,
-            )
+            agent_id = None
+            found_agent = False
+            agent_list = await client.agents.list_agents()
+            for agent in agent_list.data:
+                if agent.name == agent_name:
+                    agent_id = agent.id
+                    found_agent = True
+                    break
+            if found_agent:
+                agent_definition = await client.agents.get_agent(agent_id)
+            else:
+                # Create the agent using the project client with the agent_name as both name and assistantId
+                agent_definition = await client.agents.create_agent(
+                    model=self.AZURE_OPENAI_DEPLOYMENT_NAME,
+                    name=agent_name,
+                    instructions=instructions,
+                    temperature=temperature,
+                    response_format=response_format,
+                )
 
             # Create the agent instance directly with project_client and definition
             agent = AzureAIAgent(
