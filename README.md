@@ -82,7 +82,7 @@ Home Page
 
 Task Plan and execution
 \
-![image](./documentation/images/readme/macae-application.png)
+![image](./documentation/images/readme/macae-application1.png)
 
 Generated Research Report
 \
