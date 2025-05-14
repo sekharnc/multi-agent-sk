@@ -10,6 +10,7 @@ from semantic_kernel.kernel import Kernel
 from semantic_kernel.contents import ChatHistory
 from semantic_kernel.agents.azure_ai.azure_ai_agent import AzureAIAgent
 from semantic_kernel.functions import KernelFunction
+from azure.monitor.opentelemetry import configure_azure_monitor
 
 # Load environment variables from .env file
 load_dotenv()
@@ -56,6 +57,10 @@ class AppConfig:
         self.AZURE_AI_PROJECT_NAME = self._get_required("AZURE_AI_PROJECT_NAME")
         self.AZURE_AI_AGENT_PROJECT_CONNECTION_STRING = self._get_required(
             "AZURE_AI_AGENT_PROJECT_CONNECTION_STRING"
+        )
+
+        self.APPLICATIONINSIGHTS_CONNECTION_STRING = self._get_optional(
+            "APPLICATIONINSIGHTS_CONNECTION_STRING", ""
         )
 
         # Cached clients and resources
@@ -186,6 +191,21 @@ class AppConfig:
             self._ai_project_client = AIProjectClient.from_connection_string(
                 credential=credential, conn_str=connection_string
             )
+
+            ## Enable the AI tracing
+            # application_insights_connection_string = self.APPLICATIONINSIGHTS_CONNECTION_STRING
+            # logging.info(
+            #     "Application Insights connection string: %s",
+            #     application_insights_connection_string,
+            # )
+            # if not application_insights_connection_string:
+            #     logging.info("Application Insights was not enabled for this project.")
+            #     logging.info("Enable it via the 'Tracing' tab in your AI Foundry project page.")
+            # configure_azure_monitor(connection_string=application_insights_connection_string)
+
+            # # enable additional instrumentations if needed
+            # self._ai_project_client.telemetry.enable()
+
 
             return self._ai_project_client
         except Exception as exc:

@@ -13,7 +13,7 @@ This accelerator uses the AutoGen framework from Microsoft Research.  This is an
 
 ### Use cases / scenarios
 The multi-agent approach allows users to utilize multiple AI agents simultaneously for repeatable tasks, ensuring consistency and efficiency. 
-The agents collaborate with a manager on various assignments for onboarding a new employee , such as HR and tech support AI working together to set up software accounts, configure hardware, schedule onboarding meetings, register employees for benefits, and send welcome emails. Additionally, these agents can handle tasks like procurement and drafting press releases.
+The agents collaborate with a manager on various assignments for performing the market research, such as SEC and Earning Calls AI working together to analyze the 10-K reports, understanding management positive and negative outlook for earning calls, due diligence on fundamental and technical analysis on a specific company. Additionally, these agents can handle tasks like generating market research artifacts in form of PDF.
 
 ### Business value
 Multi-agent systems represent the next wave of Generative AI use cases, offering entirely new opportunities to drive efficiencies in your business. The Multi-Agent -Custom Automation Engine Solution Accelerator demonstrates several key benefits:
@@ -30,7 +30,7 @@ This application is an AI-driven orchestration system that manages a group of AI
 
 - Receive input tasks from users.
 - Generate a detailed plan to accomplish the task using a Planner agent.
-- Execute the plan by delegating steps to specialized agents (e.g., HR, Procurement, Marketing).
+- Execute the plan by delegating steps to specialized agents (e.g., SEC, Earning Calls, Fundamental, Technical).
 - Incorporate human feedback into the workflow.
 - Maintain state across sessions with persistent storage.
 
