@@ -28,7 +28,7 @@
   text-align: center;
 
   /* Web/Body 1 */
-  font-family: "Segoe UI";
+  font-family: 'Montserrat', Arial, sans-serif; /* Use Montserrat as primary, with fallbacks */
   font-size: 14px;
   font-style: normal;
   font-weight: 400;
@@ -42,7 +42,7 @@
     var(--Foreground-Neutral-Primary, #111)
   );
   text-align: center;
-  font-family: "Segoe UI";
+  font-family: 'Montserrat', Arial, sans-serif;
   font-size: 32px;
   font-style: normal;
   font-weight: 700;
@@ -51,7 +51,7 @@
 
 .assistants {
   text-align: center;
-  font-family: "Segoe UI";
+  font-family: 'Montserrat', Arial, sans-serif;
   font-size: 32px;
   font-style: normal;
   font-weight: 700;
@@ -59,7 +59,7 @@
 
   background: var(
     --Gradient-M365-Chat-Light-Accessible,
-    linear-gradient(90deg, #464feb 10.42%, #8330e9 100%)
+    linear-gradient(90deg, #1649a8 10.42%, #d47a45 100%)
   );
   background-clip: text;
   -webkit-background-clip: text;
@@ -260,10 +260,48 @@ textarea:disabled {
 }
 
 .card.is-hoverable.quick-task > .card-content {
-  min-height: 225px;
+  min-height: 100px;
 }
 
 .prompt-container {
   padding-top: 2rem;
   padding-bottom: 2rem;
+}
+
+.quick-tasks-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  gap: 16px;
+  
+}
+
+.quick-task-row {
+  width: 100%;
+  height: auto; /* Allow height to adjust to content */
+}
+
+.quick-task {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 8px;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-task .card-content {
+  padding: 0.5rem;
+  flex-grow: 1; /* Allow content to expand */
+  display: flex;
+  flex-direction: column;
+  height: auto;
+}
+
+.quick-task-prompt {
+  flex-grow: 1; /* Let the prompt text expand to fill available space */
+  margin-bottom: 0; /* Remove bottom margin to avoid extra space */
+  height: auto;
 }

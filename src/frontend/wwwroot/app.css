@@ -35,7 +35,7 @@ body {
   background: rgba(231, 236, 243, 0.7);
 }
 ul#tasksStats.menu-list {
-  min-height: 100px;
+   min-height: 100px;
 }
 @media (min-width: 1800px) {
   #app .asside {
@@ -58,7 +58,7 @@ ul#tasksStats.menu-list {
 }
 
 #app .asside .menu-list a.is-active {
-  background-color: rgb(71, 80, 235);
+  background-color: rgb(235, 159, 71);
 }
 
 #app .asside .menu-list a.is-active i {
@@ -66,7 +66,7 @@ ul#tasksStats.menu-list {
 }
 
 #app .asside .menu-list a.is-active:hover {
-  background-color: rgb(71, 80, 235);
+  background-color: rgb(235, 137, 71);
 }
 
 #app .asside .menu-list a.menu-task {
@@ -75,6 +75,7 @@ ul#tasksStats.menu-list {
 }
 
 #app .asside .menu-list a.menu-task span {
+  font-size: 12px;
   flex: 1;
 }
 
