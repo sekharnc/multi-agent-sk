@@ -35,7 +35,8 @@ class FundamentalAnalysisTools:
             "ticker_symbol": ticker_symbol,
             "financial_metrics": [],
             "ratings": {},
-            "financial_scores": []
+            "financial_scores": [],
+            "notes": []  # Initialize the notes key
         }
 
         try:

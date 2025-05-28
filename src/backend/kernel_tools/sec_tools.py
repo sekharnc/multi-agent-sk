@@ -16,6 +16,8 @@ from helpers.charting import ReportChartUtils
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from helpers.azureblob import azureBlobApi
 import uuid
+# Import AppConfig from app_config
+from app_config import AppConfig, config
 
 class SecTools:
 
@@ -167,6 +169,10 @@ class SecTools:
             riskAssess = ReportAnalysisUtils.get_risk_assessment(ticker_symbol, year)
             riskAssessment = summarize(riskAssess)
 
+        global marketPosition
+        if 'marketPosition' not in globals():
+            marketPosition = None
+
         if marketPosition is None or len(marketPosition) == 0:
             companyDesc = ReportAnalysisUtils.analyze_company_description(ticker_symbol, year)
             marketPosition = summarize(companyDesc)
@@ -189,7 +195,7 @@ class SecTools:
             filingDate = datetime.strptime(filingDate, "%Y-%m-%d").strftime("%Y-%m-%d")
 
 
-        if Config.APP_IN_CONTAINER:
+        if AppConfig.APP_IN_CONTAINER:
             reportDir = "/app/backend/reports/"
         else:
             reportDir = "reports\\"

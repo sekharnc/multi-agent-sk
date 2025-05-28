@@ -126,10 +126,15 @@ class AppConfig:
         """
         # Cache the credentials object
         if self._azure_credentials is not None:
+            print("Using cached Azure credentials")
+            logging.info("Using cached Azure credentials")
             return self._azure_credentials
 
         try:
             self._azure_credentials = DefaultAzureCredential()
+            logging.info("Created new Azure credentials")
+            print("Using Default Azure credentials")
+            logging.info("Using Default Azure credentials")
             return self._azure_credentials
         except Exception as exc:
             logging.warning("Failed to create DefaultAzureCredential: %s", exc)

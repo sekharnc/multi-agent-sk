@@ -1,14 +1,14 @@
 import inspect
-from typing import Annotated, Callable, List, Dict
-
-from semantic_kernel.functions import kernel_function
-from models.messages_kernel import AgentType
-import inspect
 import json
 from typing import Any, Dict, List, get_type_hints
+from datetime import date, timedelta
+
+import ta  # Importing the technical analysis library
+from semantic_kernel.functions import kernel_function
+from models.messages_kernel import AgentType
+
 from helpers.fmputils import *
 from helpers.yfutils import *
-from datetime import date, timedelta, datetime
 
 class TechnicalAnalysisTools:
 

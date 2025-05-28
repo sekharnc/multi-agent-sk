@@ -17,13 +17,20 @@ opentelemetry-exporter-otlp-proto-http
 opentelemetry-exporter-otlp
 
 semantic-kernel[azure]==1.29.0
-azure-ai-projects
+azure-ai-projects==1.0.0b10
 openai 
 azure-ai-inference 
 azure-search-documents 
 azure-ai-evaluation
 
 opentelemetry-exporter-otlp-proto-grpc
+
+yfinance
+tenacity
+langchain
+sec_api
+reportlab
+mplfinance
 
 # Testing tools
 pytest>=8.2,<9  # Compatible version for pytest-asyncio

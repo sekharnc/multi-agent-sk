@@ -75,11 +75,13 @@ class CosmosMemoryContext(MemoryStoreBase):
                 cosmos_client = CosmosClient(
                     self._cosmos_endpoint, credential=DefaultAzureCredential()
                 )
+                print(f"Connecting to CosmosDB at {self._cosmos_endpoint}")
                 self._database = cosmos_client.get_database_client(
                     self._cosmos_database
                 )
-
+                logging.info(f"Connected to CosmosDB database: {self._cosmos_database}")
             # Set up CosmosDB container
+            print(f"Creating or getting container: {self._cosmos_container}")
             self._container = await self._database.create_container_if_not_exists(
                 id=self._cosmos_container,
                 partition_key=PartitionKey(path="/session_id"),
@@ -87,7 +89,7 @@ class CosmosMemoryContext(MemoryStoreBase):
             logging.info("Successfully connected to CosmosDB")
         except Exception as e:
             logging.error(
-                f"Failed to initialize CosmosDB container: {e}. Continuing without CosmosDB for testing."
+                f"Failed to initialize CosmosDB container:: {e}. Continuing without CosmosDB for testing."
             )
             # Do not raise to prevent test failures
             self._container = None
@@ -99,6 +101,7 @@ class CosmosMemoryContext(MemoryStoreBase):
         """Ensure that the container is initialized."""
         if not self._initialized.is_set():
             # If the initialization hasn't been done, do it now
+            print("SN:Initializing CosmosDB container...")
             await self.initialize()
 
         # If after initialization the container is still None, that means initialization failed
@@ -169,6 +172,20 @@ class CosmosMemoryContext(MemoryStoreBase):
             logging.exception(f"Failed to retrieve item from Cosmos DB: {e}")
             return None
 
+    def map_agent_value(self, agent_value: str) -> str:
+        """Map incorrect agent values to the correct enum values."""
+        agent_mapping = {
+            "CompanyAnalystAgent": "Company_Analyst_Agent",
+            "SecAnalystAgent": "SEC_Agent",
+            "TechnicalAnalysisAgent": "Technical_Agent",
+            "FundamentalAnalysisAgent": "Fundamental_Agent",
+            "EarningCallsAgent": "Earning_Calls_Agent",
+            "ForecasterAgent": "Forecaster_Agent",
+            "HumanAgent": "Human_Agent",
+            
+        }
+        return agent_mapping.get(agent_value, agent_value)
+
     async def query_items(
         self,
         query: str,
@@ -181,7 +198,12 @@ class CosmosMemoryContext(MemoryStoreBase):
         try:
             items = self._container.query_items(query=query, parameters=parameters)
             result_list = []
+
             async for item in items:
+                # Preprocess the agent field if it exists
+                if "agent" in item:
+                    item["agent"] = self.map_agent_value(item["agent"])
+
                 item["ts"] = item["_ts"]
                 result_list.append(model_class.model_validate(item))
             return result_list
