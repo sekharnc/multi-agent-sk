@@ -33,6 +33,7 @@ from models.messages_kernel import (
 from event_utils import track_event_if_configured
 from app_config import config
 from kernel_tools.generic_tools import GenericTools
+from kernel_tools.web_tools import WebTools
 from kernel_tools.fundamental_tools import FundamentalAnalysisTools
 from kernel_tools.company_tools import CompanyAnalystTools
 from kernel_tools.earningcalls_tools import EarningCallsTools
@@ -103,6 +104,7 @@ class PlannerAgent(BaseAgent):
             AgentType.SEC.value,
             AgentType.TECHNICAL.value,
             AgentType.GENERIC.value,
+            AgentType.WEB.value,    
         ]
         self._agent_tools_list = {
             AgentType.FUNDAMENTAL: FundamentalAnalysisTools.generate_tools_json_doc(),
@@ -112,6 +114,7 @@ class PlannerAgent(BaseAgent):
             AgentType.SEC: SecTools.generate_tools_json_doc(),
             AgentType.TECHNICAL: TechnicalAnalysisTools.generate_tools_json_doc(),
             AgentType.GENERIC: GenericTools.generate_tools_json_doc(),
+            AgentType.WEB: WebTools.generate_tools_json_doc(),
         }
 
         self._agent_instances = agent_instances or {}

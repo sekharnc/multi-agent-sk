@@ -182,6 +182,7 @@ class CosmosMemoryContext(MemoryStoreBase):
             "EarningCallsAgent": "Earning_Calls_Agent",
             "ForecasterAgent": "Forecaster_Agent",
             "HumanAgent": "Human_Agent",
+            "WebAgent": "Web_Agent",
             
         }
         return agent_mapping.get(agent_value, agent_value)

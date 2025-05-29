@@ -92,6 +92,7 @@ class GroupChatManager(BaseAgent):
             AgentType.FORECASTER.value,
             AgentType.SEC.value,
             AgentType.GENERIC.value,
+            AgentType.WEB.value,
         ]
         self._agent_tools_list = agent_tools_list or []
         self._agent_instances = agent_instances or {}

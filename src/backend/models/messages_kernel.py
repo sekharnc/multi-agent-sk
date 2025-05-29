@@ -49,6 +49,7 @@ class AgentType(str, Enum):
     TECHNICAL = "Technical_Agent"
     SEC = "SEC_Agent"
     FORECASTER = "Forecaster_Agent"
+    WEB = "Web_Agent"
 
     # Add other agents as needed
 

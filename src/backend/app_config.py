@@ -11,6 +11,8 @@ from semantic_kernel.contents import ChatHistory
 from semantic_kernel.agents.azure_ai.azure_ai_agent import AzureAIAgent
 from semantic_kernel.functions import KernelFunction
 from azure.monitor.opentelemetry import configure_azure_monitor
+from azure.ai.projects.models import BingGroundingTool  
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,6 +52,8 @@ class AppConfig:
 
         self.AZURE_BLOB_STORAGE_NAME = self._get_required("AZURE_BLOB_STORAGE_NAME")
         self.AZURE_BLOB_CONTAINER_NAME = self._get_required("AZURE_BLOB_CONTAINER_NAME")
+
+        self.BING_CONNECTION_NAME_ENV = self._get_required("BING_CONNECTION_NAME_ENV")
 
         # Azure AI settings
         self.AZURE_AI_SUBSCRIPTION_ID = self._get_required("AZURE_AI_SUBSCRIPTION_ID")
@@ -216,7 +220,20 @@ class AppConfig:
         except Exception as exc:
             logging.error("Failed to create AIProjectClient: %s", exc)
             raise
+    async def get_bing_tool(self) -> 'BingGroundingTool':
+        """Get the BingGroundingTool using the AIProjectClient.
 
+        Returns:
+            An instance of BingGroundingTool
+        """
+        try:
+            client = self.get_ai_project_client()
+            bing_connection_name = self.BING_CONNECTION_NAME_ENV
+            bing_connection = await client.connections.get(connection_name=bing_connection_name)
+            return BingGroundingTool(connection_id=bing_connection.id)
+        except Exception as exc:
+            logging.error("Failed to get BingGroundingTool: %s", exc)
+            raise   
     async def create_azure_ai_agent(
         self,
         agent_name: str,

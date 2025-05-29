@@ -22,7 +22,7 @@ from kernel_agents.fundamental_agent import FundamentalAnalysisAgent
 from kernel_agents.technical_agent import TechnicalAnalysisAgent
 from kernel_agents.sec_agent import SecAgent
 from kernel_agents.forecaster_agent import ForecasterAgent
-
+from kernel_agents.web_agent import WebAgent  # Import WebAgent for generic web tasks
 from kernel_agents.generic_agent import GenericAgent
 from kernel_agents.planner_agent import PlannerAgent  # Add PlannerAgent import
 from kernel_agents.group_chat_manager import GroupChatManager
@@ -50,6 +50,7 @@ class AgentFactory:
         AgentType.SEC: SecAgent,
         AgentType.FORECASTER: ForecasterAgent,
         AgentType.GENERIC: GenericAgent,
+        AgentType.WEB: WebAgent,  # Add WebAgent for generic web tasks
         AgentType.HUMAN: HumanAgent,
         AgentType.PLANNER: PlannerAgent,
         AgentType.GROUP_CHAT_MANAGER: GroupChatManager,  # Add GroupChatManager
@@ -63,7 +64,8 @@ class AgentFactory:
         AgentType.TECHNICAL: AgentType.TECHNICAL.value,
         AgentType.SEC: AgentType.SEC.value,
         AgentType.FORECASTER: AgentType.FORECASTER.value,
-        AgentType.GENERIC: AgentType.GENERIC.value,
+        AgentType.GENERIC: AgentType.GENERIC.value, 
+        AgentType.WEB: AgentType.WEB.value,  # Use WEB for generic web tasks    
         AgentType.HUMAN: AgentType.HUMAN.value,
         AgentType.PLANNER: AgentType.PLANNER.value,
         AgentType.GROUP_CHAT_MANAGER: AgentType.GROUP_CHAT_MANAGER.value,
@@ -78,6 +80,7 @@ class AgentFactory:
         AgentType.SEC: SecAgent.default_system_message(),
         AgentType.FORECASTER: ForecasterAgent.default_system_message(),
         AgentType.GENERIC: GenericAgent.default_system_message(),
+        AgentType.WEB: WebAgent.default_system_message(),
         AgentType.HUMAN: HumanAgent.default_system_message(),
         AgentType.PLANNER: PlannerAgent.default_system_message(),
         AgentType.GROUP_CHAT_MANAGER: GroupChatManager.default_system_message(),
@@ -139,7 +142,7 @@ class AgentFactory:
                 f"Returning cached agent instance for session {session_id} and agent type {agent_type}"
             )
             return cls._agent_cache[session_id][agent_type]
-
+        
         # Get the agent class
         agent_class = cls._agent_classes.get(agent_type)
         if not agent_class:
@@ -155,6 +158,73 @@ class AgentFactory:
                 agent_type,
                 f"You are a helpful AI assistant specialized in {cls._agent_type_strings.get(agent_type, 'general')} tasks.",
             )
+        #return Web Agent with bing tool
+        if agent_type == AgentType.WEB:
+            # Get Bing tool asynchronously
+            bing_tool = None
+            try:
+                bing_tool = await config.get_bing_tool()
+            except Exception as e:
+                logging.error(f"Failed to get Bing tool: {e}")
+            
+            # For WebAgent, we need to create the definition first like other agents
+            agent_type_str = cls._agent_type_strings.get(
+                agent_type, agent_type.value.lower()
+            )
+            
+            # Create client if not provided
+            if client is None:
+                try:
+                    client = config.get_ai_project_client()
+                except Exception as client_exc:
+                    logger.error(f"Error creating AIProjectClient: {client_exc}")
+                    raise
+            
+            # Create or get agent definition
+            definition = None
+            try:
+                if client is not None:
+                    agent_id = None
+                    found_agent = False
+                    agent_list = await client.agents.list_agents()
+                    for agent in agent_list.data:
+                        if agent.name == agent_type_str:
+                            agent_id = agent.id
+                            found_agent = True
+                            break
+                    if found_agent:
+                        definition = await client.agents.get_agent(agent_id)
+                    else:
+                        definition = await client.agents.create_agent(
+                            model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
+                            name=agent_type_str,
+                            instructions=system_message,
+                            temperature=temperature,
+                            response_format=response_format,
+                        )
+                    logger.info(f"Successfully created agent definition for {agent_type_str}")
+            except Exception as agent_exc:
+                logger.error(f"Error creating agent definition for WebAgent: {agent_exc}")
+                raise
+            
+            # Create WebAgent with proper definition
+            web_agent = WebAgent(
+                session_id=session_id,
+                user_id=user_id,
+                memory_store=memory_store,
+                tools=kwargs.get('tools'),
+                system_message=system_message,
+                client=client,
+                definition=definition,
+                bing_tool=bing_tool,
+            )
+            
+            # Cache the agent instance
+            if session_id not in cls._agent_cache:
+                cls._agent_cache[session_id] = {}
+            cls._agent_cache[session_id][agent_type] = web_agent
+            
+            return web_agent
 
         # For other agent types, use the standard tool loading mechanism
         agent_type_str = cls._agent_type_strings.get(
@@ -280,6 +350,7 @@ class AgentFactory:
         agents = {}
         planner_agent_type = AgentType.PLANNER
         group_chat_manager_type = AgentType.GROUP_CHAT_MANAGER
+        
 
         try:
             if client is None:
@@ -296,7 +367,7 @@ class AgentFactory:
         for agent_type in [
             at
             for at in cls._agent_classes.keys()
-            if at != planner_agent_type and at != group_chat_manager_type
+            if at != planner_agent_type and at != group_chat_manager_type 
         ]:
             agents[agent_type] = await cls.create_agent(
                 agent_type=agent_type,
@@ -321,7 +392,7 @@ class AgentFactory:
         logger.info(
             f"Created {len(agent_instances)} agent instances for planner: {', '.join(agent_instances.keys())}"
         )
-
+        
         # Phase 2: Create the planner agent with agent_instances
         planner_agent = await cls.create_agent(
             agent_type=AgentType.PLANNER,

@@ -12,6 +12,7 @@ except ImportError:
     # Fall back to older structure for compatibility
     from semantic_kernel.connectors.ai.chat_completion_client import ChatHistory
 from semantic_kernel.agents.azure_ai.azure_ai_agent import AzureAIAgent
+from azure.ai.projects.models import BingGroundingTool  
 
 # Import AppConfig from app_config
 from app_config import config
@@ -64,3 +65,8 @@ class Config:
     def GetAIProjectClient():
         """Get an AIProjectClient using the AppConfig implementation."""
         return config.get_ai_project_client()
+    
+    @staticmethod
+    def GetBingTool() -> BingGroundingTool:
+        """Get the BingGroundingTool using the AppConfig implementation."""
+        return config.get_bing_tool()
