@@ -164,10 +164,10 @@ class AgentFactory:
             bing_tool = None
             try:
                 bing_tool = await config.get_bing_tool()
+                logger.info("Successfully obtained Bing grounding tool")
             except Exception as e:
-                logging.error(f"Failed to get Bing tool: {e}")
+                logger.error(f"Failed to get Bing tool: {e}")
             
-            # For WebAgent, we need to create the definition first like other agents
             agent_type_str = cls._agent_type_strings.get(
                 agent_type, agent_type.value.lower()
             )
@@ -180,7 +180,7 @@ class AgentFactory:
                     logger.error(f"Error creating AIProjectClient: {client_exc}")
                     raise
             
-            # Create or get agent definition
+            # Create or get agent definition WITHOUT tools first
             definition = None
             try:
                 if client is not None:
@@ -192,9 +192,13 @@ class AgentFactory:
                             agent_id = agent.id
                             found_agent = True
                             break
+                    
                     if found_agent:
+                        # Get existing agent definition
                         definition = await client.agents.get_agent(agent_id)
+                        logger.info(f"Retrieved existing agent {agent_type_str}")
                     else:
+                        # Create new agent WITHOUT tools (tools will be added at runtime)
                         definition = await client.agents.create_agent(
                             model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
                             name=agent_type_str,
@@ -202,12 +206,13 @@ class AgentFactory:
                             temperature=temperature,
                             response_format=response_format,
                         )
-                    logger.info(f"Successfully created agent definition for {agent_type_str}")
+                        logger.info(f"Created new agent {agent_type_str}")
+                    
             except Exception as agent_exc:
                 logger.error(f"Error creating agent definition for WebAgent: {agent_exc}")
                 raise
             
-            # Create WebAgent with proper definition
+            # Create WebAgent with proper definition and bing tool
             web_agent = WebAgent(
                 session_id=session_id,
                 user_id=user_id,
@@ -218,6 +223,10 @@ class AgentFactory:
                 definition=definition,
                 bing_tool=bing_tool,
             )
+            
+            # Initialize the agent asynchronously
+            if hasattr(web_agent, "async_init"):
+                await web_agent.async_init()
             
             # Cache the agent instance
             if session_id not in cls._agent_cache:

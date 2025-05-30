@@ -229,10 +229,17 @@ class AppConfig:
         try:
             client = self.get_ai_project_client()
             bing_connection_name = self.BING_CONNECTION_NAME_ENV
+            logging.info(f"Getting Bing connection with name: {bing_connection_name}")
+            
             bing_connection = await client.connections.get(connection_name=bing_connection_name)
-            return BingGroundingTool(connection_id=bing_connection.id)
+            logging.info(f"Successfully retrieved Bing connection: {bing_connection.id}")
+            
+            bing_tool = BingGroundingTool(connection_id=bing_connection.id)
+            logging.info("Successfully created BingGroundingTool")
+            
+            return bing_tool
         except Exception as exc:
-            logging.error("Failed to get BingGroundingTool: %s", exc)
+            logging.error(f"Failed to get BingGroundingTool: {exc}")
             raise   
     async def create_azure_ai_agent(
         self,
