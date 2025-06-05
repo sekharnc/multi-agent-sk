@@ -85,14 +85,14 @@ class GroupChatManager(BaseAgent):
         # Store additional GroupChatManager-specific attributes
         self._available_agents = [
             AgentType.HUMAN.value,
+            AgentType.WEB.value,
             AgentType.COMPANY.value,
             AgentType.FUNDAMENTAL.value,
             AgentType.EARNINGCALLS.value,
             AgentType.TECHNICAL.value,
             AgentType.FORECASTER.value,
             AgentType.SEC.value,
-            AgentType.GENERIC.value,
-            AgentType.WEB.value,
+            AgentType.GENERIC.value,            
         ]
         self._agent_tools_list = agent_tools_list or []
         self._agent_instances = agent_instances or {}
@@ -399,7 +399,43 @@ class GroupChatManager(BaseAgent):
         else:
             # Use the agent from the step to determine which agent to send to
             agent = self._agent_instances[step.agent.value]
-            await agent.handle_action_request(
-                action_request
-            )  # this function is in base_agent.py
-            logging.info(f"Sent ActionRequest to {step.agent.value}")
+            
+            try:
+                logging.info(f"Starting action request to {step.agent.value} for step {step.id}")
+                
+                # Set a timeout for the action request (adjust the timeout as needed)
+                import asyncio
+                try:
+                    # Wait for the response with a timeout
+                    response = await asyncio.wait_for(
+                        agent.handle_action_request(action_request),
+                        timeout=60.0  # 20 seconds timeout
+                    )
+                    
+                    logging.info(f"Received response from {step.agent.value}: {type(response).__name__}")
+                    
+                    # Check if response is None
+                    if response is None:
+                        logging.error(f"Received None response from {step.agent.value} for step {step.id}")
+                        step.status = StepStatus.failed
+                        await self._memory_store.update_step(step)
+                        return
+                    
+                    # Mark step as completed regardless of response content
+                    # This is necessary to break any potential polling loops
+                    step.status = StepStatus.completed
+                    await self._memory_store.update_step(step)
+                    logging.info(f"Step {step.id} marked as completed")
+                    
+                except asyncio.TimeoutError:
+                    logging.error(f"Action request to {step.agent.value} timed out after 20 seconds")
+                    step.status = StepStatus.failed
+                    step.agent_reply = f"Failed due to timeout after 60 seconds"
+                    await self._memory_store.update_step(step)
+                    return
+                    
+            except Exception as e:
+                logging.exception(f"Exception during step execution: {str(e)}")
+                step.status = StepStatus.failed
+                step.agent_reply = f"Failed with error: {str(e)}"
+                await self._memory_store.update_step(step)

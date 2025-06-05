@@ -97,6 +97,7 @@ class PlannerAgent(BaseAgent):
         # Store additional planner-specific attributes
         self._available_agents = available_agents or [
             AgentType.HUMAN.value,
+            AgentType.WEB.value,  
             AgentType.FUNDAMENTAL.value,
             AgentType.COMPANY.value,
             AgentType.EARNINGCALLS.value,
@@ -104,9 +105,9 @@ class PlannerAgent(BaseAgent):
             AgentType.SEC.value,
             AgentType.TECHNICAL.value,
             AgentType.GENERIC.value,
-            AgentType.WEB.value,    
-        ]
+          ]
         self._agent_tools_list = {
+            AgentType.WEB: WebTools.generate_tools_json_doc(),
             AgentType.FUNDAMENTAL: FundamentalAnalysisTools.generate_tools_json_doc(),
             AgentType.COMPANY: CompanyAnalystTools.generate_tools_json_doc(),
             AgentType.EARNINGCALLS: EarningCallsTools.generate_tools_json_doc(),
@@ -114,7 +115,7 @@ class PlannerAgent(BaseAgent):
             AgentType.SEC: SecTools.generate_tools_json_doc(),
             AgentType.TECHNICAL: TechnicalAnalysisTools.generate_tools_json_doc(),
             AgentType.GENERIC: GenericTools.generate_tools_json_doc(),
-            AgentType.WEB: WebTools.generate_tools_json_doc(),
+            
         }
 
         self._agent_instances = agent_instances or {}

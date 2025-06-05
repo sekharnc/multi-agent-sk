@@ -158,82 +158,7 @@ class AgentFactory:
                 agent_type,
                 f"You are a helpful AI assistant specialized in {cls._agent_type_strings.get(agent_type, 'general')} tasks.",
             )
-        #return Web Agent with bing tool
-        if agent_type == AgentType.WEB:
-            # Get Bing tool asynchronously
-            bing_tool = None
-            try:
-                bing_tool = await config.get_bing_tool()
-                logger.info("Successfully obtained Bing grounding tool")
-            except Exception as e:
-                logger.error(f"Failed to get Bing tool: {e}")
-            
-            agent_type_str = cls._agent_type_strings.get(
-                agent_type, agent_type.value.lower()
-            )
-            
-            # Create client if not provided
-            if client is None:
-                try:
-                    client = config.get_ai_project_client()
-                except Exception as client_exc:
-                    logger.error(f"Error creating AIProjectClient: {client_exc}")
-                    raise
-            
-            # Create or get agent definition WITHOUT tools first
-            definition = None
-            try:
-                if client is not None:
-                    agent_id = None
-                    found_agent = False
-                    agent_list = await client.agents.list_agents()
-                    for agent in agent_list.data:
-                        if agent.name == agent_type_str:
-                            agent_id = agent.id
-                            found_agent = True
-                            break
-                    
-                    if found_agent:
-                        # Get existing agent definition
-                        definition = await client.agents.get_agent(agent_id)
-                        logger.info(f"Retrieved existing agent {agent_type_str}")
-                    else:
-                        # Create new agent WITHOUT tools (tools will be added at runtime)
-                        definition = await client.agents.create_agent(
-                            model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
-                            name=agent_type_str,
-                            instructions=system_message,
-                            temperature=temperature,
-                            response_format=response_format,
-                        )
-                        logger.info(f"Created new agent {agent_type_str}")
-                    
-            except Exception as agent_exc:
-                logger.error(f"Error creating agent definition for WebAgent: {agent_exc}")
-                raise
-            
-            # Create WebAgent with proper definition and bing tool
-            web_agent = WebAgent(
-                session_id=session_id,
-                user_id=user_id,
-                memory_store=memory_store,
-                tools=kwargs.get('tools'),
-                system_message=system_message,
-                client=client,
-                definition=definition,
-                bing_tool=bing_tool,
-            )
-            
-            # Initialize the agent asynchronously
-            if hasattr(web_agent, "async_init"):
-                await web_agent.async_init()
-            
-            # Cache the agent instance
-            if session_id not in cls._agent_cache:
-                cls._agent_cache[session_id] = {}
-            cls._agent_cache[session_id][agent_type] = web_agent
-            
-            return web_agent
+ 
 
         # For other agent types, use the standard tool loading mechanism
         agent_type_str = cls._agent_type_strings.get(
@@ -359,12 +284,12 @@ class AgentFactory:
         agents = {}
         planner_agent_type = AgentType.PLANNER
         group_chat_manager_type = AgentType.GROUP_CHAT_MANAGER
+        web_agent_type = AgentType.WEB
         
 
         try:
             if client is None:
                 # Create the AIProjectClient instance using the config
-                # This is a placeholder; replace with actual client creation logic
                 client = config.get_ai_project_client()
         except Exception as client_exc:
             logger.error(f"Error creating AIProjectClient: {client_exc}")
@@ -378,14 +303,24 @@ class AgentFactory:
             for at in cls._agent_classes.keys()
             if at != planner_agent_type and at != group_chat_manager_type 
         ]:
-            agents[agent_type] = await cls.create_agent(
-                agent_type=agent_type,
-                session_id=session_id,
-                user_id=user_id,
-                temperature=temperature,
-                client=client,
-                memory_store=memory_store,
-            )
+            if agent_type == web_agent_type:
+                # For web agent type, use the specialized create_web_agent method
+                agents[agent_type] = await cls.create_web_agent(
+                    session_id=session_id,
+                    user_id=user_id,
+                    temperature=temperature,
+                    client=client,
+                    memory_store=memory_store,
+                )
+            else:
+                agents[agent_type] = await cls.create_agent(
+                    agent_type=agent_type,
+                    session_id=session_id,
+                    user_id=user_id,
+                    temperature=temperature,
+                    client=client,
+                    memory_store=memory_store,
+                )
 
         # Create agent name to instance mapping for the planner
         agent_instances = {}
@@ -430,7 +365,7 @@ class AgentFactory:
             user_id=user_id,
             temperature=temperature,
             client=client,
-            agent_instances=agent_instances,  # Pass agent instances to the planner
+            agent_instances=agent_instances,
         )
         agents[group_chat_manager_type] = group_chat_manager
 
@@ -472,3 +407,215 @@ class AgentFactory:
             cls._agent_cache.clear()
             cls._azure_ai_agent_cache.clear()
             logger.info("Cleared all agent caches")
+
+    @classmethod
+    async def create_web_agent(
+        cls,
+        session_id: str,
+        user_id: str,
+        temperature: float = 0.0,
+        memory_store: Optional[CosmosMemoryContext] = None,
+        system_message: Optional[str] = None,
+        response_format: Optional[Any] = None,
+        client: Optional[Any] = None,
+        **kwargs,
+    ) -> BaseAgent:
+        """Create a specialized web agent.
+
+        This method creates and initializes a web agent instance with specific configurations
+        for web-based tasks. It follows a similar initialization process as create_agent but
+        with web-specific optimizations.
+
+        Args:
+            session_id: The unique identifier for the current session
+            user_id: The user identifier for the current user
+            temperature: The temperature parameter for the agent's responses (0.0-1.0)
+            system_message: Optional custom system message to override default
+            response_format: Optional response format configuration for structured outputs
+            **kwargs: Additional parameters to pass to the agent constructor
+
+        Returns:
+            An initialized instance of the web agent
+
+        Raises:
+            ValueError: If initialization fails
+        """
+        agent_type = AgentType.WEB
+        
+        # Check if we already have an agent in the cache
+        if (
+            session_id in cls._agent_cache
+            and agent_type in cls._agent_cache[session_id]
+        ):
+            logger.info(
+                f"Returning cached web agent instance for session {session_id}"
+            )
+            return cls._agent_cache[session_id][agent_type]
+        
+        # Get the agent class
+        agent_class = cls._agent_classes.get(agent_type)
+        if not agent_class:
+            raise ValueError(f"Web agent type not found")
+
+        # Create memory store
+        if memory_store is None:
+            memory_store = CosmosMemoryContext(session_id, user_id)
+
+        # Use default system message if none provided
+        if system_message is None:
+            system_message = cls._agent_system_messages.get(
+                agent_type,
+                """You are a specialized web assistant focused on gathering and processing information from online sources.
+                You have access to the Bing search tool. ALWAYS use this tool when you need to:
+                1. Search for current information
+                2. Find specific facts or data
+                3. Research topics or questions
+                4. Answer queries that require up-to-date information
+                
+                DO NOT try to answer questions requiring external information without using the Bing search tool first.
+                If you're asked to find information online, ALWAYS use the Bing search tool before responding.
+                """
+            )
+
+        # For web agent, use the standard tool loading mechanism
+        agent_type_str = cls._agent_type_strings.get(
+            agent_type, agent_type.value.lower()
+        )
+        tools = None
+
+        # Import and set up BingGroundingTool
+        try:
+            bing_tool = await config.get_bing_tool()
+        except Exception as bing_exc:
+            logger.error(f"Error setting up BingGroundingTool: {bing_exc}")     
+            bing_tool = None
+
+        # Build the agent definition (functions schema)
+        definition = None
+
+        try:
+            if client is None:
+                # Create the AIProjectClient instance using the config
+                client = config.get_ai_project_client()
+        except Exception as client_exc:
+            logger.error(f"Error creating AIProjectClient for web agent: {client_exc}")
+            raise
+
+        try:
+            # Create the agent definition using the AIProjectClient (project-based pattern)
+            if client is not None:
+                agent_id = None
+                found_agent = False
+                agent_list = await client.agents.list_agents()
+                for agent in agent_list.data:
+                    if agent.name == agent_type_str:
+                        agent_id = agent.id
+                        found_agent = True
+                        break
+                if found_agent:
+                    definition = await client.agents.get_agent(agent_id)
+                else:
+                    definition = await client.agents.create_agent(
+                        model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
+                        name=agent_type_str,
+                        instructions=system_message,
+                        temperature=temperature,
+                        response_format=response_format,
+                    )
+                
+                # If we have the Bing tool, add it to the agent
+                if bing_tool and definition:
+                    try:
+                        # Register the Bing grounding tool with the agent definition
+                        tool_def = bing_tool.definitions
+                        
+                        # More detailed logging for debugging tool structure
+                        logger.info(f"Available methods on client.agents: {[method for method in dir(client.agents) if not method.startswith('_')]}")
+                        logger.info(f"Tool definition structure: {type(tool_def)}")
+                        
+                        # Check if tool_def is properly structured
+                        if isinstance(tool_def, list):
+                            logger.info(f"Tool definition is a list with {len(tool_def)} items")
+                            for i, tool in enumerate(tool_def):
+                                logger.info(f"Tool {i} type: {type(tool)}, keys: {tool.keys() if hasattr(tool, 'keys') else 'N/A'}")
+                            
+                            # Ensure the Bing tool is configured correctly
+                            for tool in tool_def:
+                                if hasattr(tool, 'get') and tool.get('name') == 'bing_search':
+                                    logger.info("Found Bing search tool in definition")
+                                    break
+                            else:
+                                logger.warning("Bing search tool not found in tool definitions")
+                            
+                            # Update the agent with the tool list
+                            await client.agents.update_agent(
+                                agent_id=definition.id,
+                                tools=tool_def  # Pass the list directly
+                            )
+                            logger.info(f"Updated agent with tools")
+                        else:
+                            logger.info(f"Tool definition is not a list, wrapping in list: {tool_def}")
+                            await client.agents.update_agent(
+                                agent_id=definition.id,
+                                tools=[tool_def]  # Wrap in a list if it's a single object
+                            )
+                        
+                        # Make an explicit verification call to ensure tool was added
+                        updated_agent = await client.agents.get_agent(definition.id)
+                        logger.info(f"Verified agent tools: {getattr(updated_agent, 'tools', 'No tools attribute')}")
+                        logger.info(f"Added BingGroundingTool to web agent {agent_type_str}")
+                    except Exception as tool_exc:
+                        logger.error(f"Error adding BingGroundingTool to agent: {tool_exc}")
+                        import traceback
+                        logger.error(f"Detailed error: {traceback.format_exc()}")
+                    
+                logger.info(
+                    f"Successfully created web agent definition for {agent_type_str}"
+                )
+        except Exception as agent_exc:
+            logger.error(
+                f"Error creating web agent definition with AIProjectClient: {agent_exc}"
+            )
+            raise
+
+        # Create the web agent instance
+        try:
+            # Filter kwargs to only those accepted by the agent's __init__
+            agent_init_params = inspect.signature(agent_class.__init__).parameters
+            valid_keys = set(agent_init_params.keys()) - {"self"}
+            filtered_kwargs = {
+                k: v
+                for k, v in {
+                    "agent_name": agent_type_str,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "memory_store": memory_store,
+                    "tools": tools,
+                    "system_message": system_message,
+                    "client": client,
+                    "definition": definition,
+                    "bing_tool": bing_tool,  # Pass the Bing tool to the agent
+                    **kwargs,
+                }.items()
+                if k in valid_keys
+            }
+            agent = agent_class(**filtered_kwargs)
+
+            # Initialize the agent asynchronously if it has async_init
+            if hasattr(agent, "async_init") and inspect.iscoroutinefunction(
+                agent.async_init
+            ):
+                init_result = await agent.async_init()
+
+        except Exception as e:
+            logger.error(
+                f"Error creating web agent: {e}"
+            )
+            raise
+
+        # Cache the agent instance
+        if session_id not in cls._agent_cache:
+            cls._agent_cache[session_id] = {}
+        cls._agent_cache[session_id][agent_type] = agent
+
+        return agent

@@ -40,6 +40,7 @@ class AgentType(str, Enum):
     """Enumeration of agent types."""
 
     HUMAN = "Human_Agent"
+    WEB = "Web_Agent"
     GENERIC = "Generic_Agent"
     GROUP_CHAT_MANAGER = "Group_Chat_Manager"
     PLANNER = "Planner_Agent"
@@ -48,9 +49,7 @@ class AgentType(str, Enum):
     FUNDAMENTAL = "Fundamental_Agent"
     TECHNICAL = "Technical_Agent"
     SEC = "SEC_Agent"
-    FORECASTER = "Forecaster_Agent"
-    WEB = "Web_Agent"
-
+    FORECASTER = "Forecaster_Agent"    
     # Add other agents as needed
 
 
