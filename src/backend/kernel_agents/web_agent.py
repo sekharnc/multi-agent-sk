@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any
 
 import semantic_kernel as sk
 from context.cosmos_memory_kernel import CosmosMemoryContext
@@ -10,6 +10,7 @@ from models.messages_kernel import AgentType
 from semantic_kernel.functions import KernelFunction
 from azure.ai.projects.models import BingGroundingTool
 from app_config import config
+from pydantic import Field
 
 logger = logging.getLogger(__name__)
 
@@ -18,63 +19,62 @@ class WebAgent(BaseAgent):
 
     This agent specializes in searching internet to find general information on company and its business..
     """
+    # Define class attributes explicitly for Pydantic model
+    bing_tool: Optional[BingGroundingTool] = Field(default=None, description="Bing search tool for web searches")
+    _bing_was_used: bool = False
+    _last_action_required_search: bool = False
 
     def __init__(
         self,
+        agent_name: str,
         session_id: str,
         user_id: str,
-        memory_store: CosmosMemoryContext,
-        tools: Optional[List[KernelFunction]] = None,
+        memory_store: Optional[Any] = None,
         system_message: Optional[str] = None,
-        agent_name: str = AgentType.WEB.value,
-        client=None,
-        definition=None,
-        bing_tool: Optional[BingGroundingTool] = None,
-    ) -> None:
-        """Initialize the Web Agent.
-
-        Args:
-            session_id: The current session identifier
-            user_id: The user identifier
-            memory_store: The Cosmos memory context
-            tools: List of tools available to this agent (optional)
-            system_message: Optional system message for the agent
-            agent_name: Optional name for the agent (defaults to "WebAgent")
-            client: Optional client instance
-            definition: Optional definition instance
-            bing_tool: Optional BingGroundingTool instance
-        """
-        # Load configuration if tools not provided
-        if not tools:
-            # Get tools directly from WebTools class
-            tools_dict = WebTools.get_all_kernel_functions()
-            tools = [KernelFunction.from_method(func) for func in tools_dict.values()]
-
-        # Use system message from config if not explicitly provided
-        if not system_message:
-            system_message = self.default_system_message(agent_name)
-
-        # Use agent name from config if available
-        agent_name = AgentType.WEB.value
-        
-        # Store bing_tool for later use
-        self._bing_tool = bing_tool
-        
-        # Initialize tracking variables
-        self._bing_was_used = False
-        self._last_action_required_search = False
-        
-        # Call the parent initializer
+        tools: Optional[List[Any]] = None,
+        client: Optional[Any] = None,
+        definition: Optional[Any] = None,
+        bing_tool: Optional[Any] = None,
+        **kwargs,
+    ):
+        """Initialize the WebAgent with the specified parameters."""
         super().__init__(
             agent_name=agent_name,
             session_id=session_id,
             user_id=user_id,
             memory_store=memory_store,
-            tools=tools,
             system_message=system_message,
+            tools=tools,
             client=client,
             definition=definition,
+            **kwargs,
         )
+        # Bing tool is now properly defined as a model field
+        self.bing_tool = bing_tool
+        logger.info(f"WebAgent initialized with bing_tool: {self.bing_tool is not None}")
+
+    async def async_init(self):
+        """Asynchronously initialize the WebAgent with setup specific to web capabilities."""
+        try:
+            # Validate and setup Bing tool if available
+            if self.bing_tool is not None:
+                # Log successful Bing tool initialization
+                logger.info(f"WebAgent initializing with Bing tool: {type(self.bing_tool)}")
+            else:
+                logger.warning("WebAgent initializing without Bing tool")
+            
+            # Call parent's async_init if it exists
+            if hasattr(super(), "async_init"):
+                parent_result = await super().async_init()
+                if parent_result is False:
+                    return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"WebAgent async initialization failed: {e}")
+            import traceback
+            logger.error(f"Detailed error: {traceback.format_exc()}")
+            return False
 
     @staticmethod
     def default_system_message(agent_name=None) -> str:
@@ -118,16 +118,21 @@ class WebAgent(BaseAgent):
     async def handle_action_request(self, action_request):
         """Handle an action request by processing it through the agent."""
         try:
-            logger.info(f"WebAgent received action request: {action_request.action[:100]}...")
+            logger.info(f"WebAgent received action request: {action_request.action}...")
             
             # Reset tracking variables for this request
             self._bing_was_used = False
-            
-            # Check if action likely requires web search
+              # Check if action likely requires web search
             needs_search = self._should_use_bing(action_request.action)
             self._last_action_required_search = needs_search
             
+            # Log BingGroundingTool status
             if needs_search:
+                if self.bing_tool:  # Changed from self._bing_tool to self.bing_tool
+                    logger.info("Action requires web search and BingGroundingTool is available")
+                else:
+                    logger.warning("Action requires web search but BingGroundingTool is NOT available")
+                
                 logger.info("Action likely requires web search, will use Bing tool")
                 # Modify the action request to explicitly instruct Bing usage
                 enhanced_action = f"""
@@ -141,7 +146,8 @@ class WebAgent(BaseAgent):
                 3. Only provide factual information that you can verify
                 """
                 action_request.action = enhanced_action
-            
+            logger.info(f"Processed action request for WebAgent: {action_request.action}...")
+            # If Bing tool is available and action requires search, ensure it's used
             # Process the request through the agent
             response = await super().handle_action_request(action_request)
             

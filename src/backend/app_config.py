@@ -224,23 +224,37 @@ class AppConfig:
         """Get the BingGroundingTool using the AIProjectClient.
 
         Returns:
-            An instance of BingGroundingTool
+            An instance of BingGroundingTool or None if there's an error
         """
         try:
             client = self.get_ai_project_client()
             bing_connection_name = self.BING_CONNECTION_NAME_ENV
             logging.info(f"Getting Bing connection with name: {bing_connection_name}")
             
-            bing_connection = await client.connections.get(connection_name=bing_connection_name)
-            logging.info(f"Successfully retrieved Bing connection: {bing_connection.id}")
-            
-            bing_tool = BingGroundingTool(connection_id=bing_connection.id)
-            logging.info("Successfully created BingGroundingTool")
-            
-            return bing_tool
+            # Check if we have a valid connection name
+            if not bing_connection_name:
+                logging.error("BING_CONNECTION_NAME_ENV is not set or is empty")
+                return None
+                
+            try:
+                bing_connection = await client.connections.get(connection_name=bing_connection_name)
+                logging.info(f"Successfully retrieved Bing connection: {bing_connection.id}")
+                
+                bing_tool = BingGroundingTool(connection_id=bing_connection.id)
+                logging.info("Successfully created BingGroundingTool")
+                
+                return bing_tool
+            except Exception as conn_exc:
+                logging.error(f"Error getting Bing connection: {conn_exc}")
+                import traceback
+                logging.error(f"Detailed connection error: {traceback.format_exc()}")
+                return None
+                
         except Exception as exc:
             logging.error(f"Failed to get BingGroundingTool: {exc}")
-            raise   
+            import traceback
+            logging.error(f"Detailed BingGroundingTool error: {traceback.format_exc()}")
+            return None
     async def create_azure_ai_agent(
         self,
         agent_name: str,

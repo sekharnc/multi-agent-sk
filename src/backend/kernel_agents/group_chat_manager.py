@@ -409,7 +409,7 @@ class GroupChatManager(BaseAgent):
                     # Wait for the response with a timeout
                     response = await asyncio.wait_for(
                         agent.handle_action_request(action_request),
-                        timeout=60.0  # 20 seconds timeout
+                        timeout=20.0  # 20 seconds timeout
                     )
                     
                     logging.info(f"Received response from {step.agent.value}: {type(response).__name__}")

@@ -237,6 +237,11 @@ class AgentFactory:
                 agent.async_init
             ):
                 init_result = await agent.async_init()
+                if init_result is False:  # Check if initialization failed
+                    logger.error(
+                        f"Async initialization failed for {agent_type_str} agent"
+                    )
+                    raise ValueError(f"Failed to initialize {agent_type_str} agent")
 
         except Exception as e:
             logger.error(
@@ -481,14 +486,16 @@ class AgentFactory:
         agent_type_str = cls._agent_type_strings.get(
             agent_type, agent_type.value.lower()
         )
-        tools = None
-
-        # Import and set up BingGroundingTool
+        tools = None        # Import and set up BingGroundingTool
         try:
             bing_tool = await config.get_bing_tool()
+            logger.info(f"Successfully created BingGroundingTool instance: {type(bing_tool)}")
         except Exception as bing_exc:
-            logger.error(f"Error setting up BingGroundingTool: {bing_exc}")     
+            logger.error(f"Error setting up BingGroundingTool: {bing_exc}")
+            import traceback
+            logger.error(f"Detailed BingGroundingTool error: {traceback.format_exc()}")
             bing_tool = None
+            logger.warning("WebAgent will operate without BingGroundingTool")
 
         # Build the agent definition (functions schema)
         definition = None
@@ -579,10 +586,15 @@ class AgentFactory:
             raise
 
         # Create the web agent instance
-        try:
-            # Filter kwargs to only those accepted by the agent's __init__
+        try:            # Filter kwargs to only those accepted by the agent's __init__
             agent_init_params = inspect.signature(agent_class.__init__).parameters
             valid_keys = set(agent_init_params.keys()) - {"self"}
+            
+            # Make sure bing_tool will be passed - log its presence in valid keys
+            logger.info(f"WebAgent __init__ params: {valid_keys}")
+            if "bing_tool" not in valid_keys:
+                logger.warning("bing_tool is not in WebAgent's __init__ valid parameters - will add it explicitly")
+            
             filtered_kwargs = {
                 k: v
                 for k, v in {
@@ -594,11 +606,13 @@ class AgentFactory:
                     "system_message": system_message,
                     "client": client,
                     "definition": definition,
-                    "bing_tool": bing_tool,  # Pass the Bing tool to the agent
                     **kwargs,
                 }.items()
                 if k in valid_keys
             }
+            
+            # Explicitly add bing_tool to ensure it's passed regardless of filter
+            filtered_kwargs["bing_tool"] = bing_tool
             agent = agent_class(**filtered_kwargs)
 
             # Initialize the agent asynchronously if it has async_init
@@ -606,12 +620,35 @@ class AgentFactory:
                 agent.async_init
             ):
                 init_result = await agent.async_init()
-
+                if init_result is False:  # Check if initialization failed
+                    logger.error(
+                        f"Async initialization failed for {agent_type_str} agent"
+                    )
+                    raise ValueError(f"Failed to initialize {agent_type_str} agent")        
         except Exception as e:
-            logger.error(
-                f"Error creating web agent: {e}"
-            )
-            raise
+                logger.error(
+                    f"Error creating web agent: {e}"
+                )
+                raise
+
+        # Verify the agent tools after creation
+        try:
+            agent_def = await client.agents.get_agent(definition.id)
+            agent_tools = getattr(agent_def, 'tools', [])
+            logger.info(f"Agent tools after creation: {agent_tools}")
+            
+            # Check if bing_search is in the tools
+            bing_found = False
+            for tool in agent_tools:
+                if hasattr(tool, 'get') and tool.get('name') == 'bing_search':
+                    bing_found = True
+                    logger.info("bing_search tool found in agent tools!")
+                    break
+            
+            if not bing_found:
+                logger.warning("bing_search tool NOT found in agent tools!")
+        except Exception as inspect_exc:
+            logger.error(f"Error inspecting agent tools: {inspect_exc}")
 
         # Cache the agent instance
         if session_id not in cls._agent_cache:
