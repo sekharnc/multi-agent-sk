@@ -2,6 +2,8 @@ import inspect
 import json
 from datetime import datetime
 from typing import Annotated, Callable, List, Optional
+import logging
+logger = logging.getLogger(__name__)
 
 from semantic_kernel.functions import kernel_function
 from typing import Any, Dict, List, get_type_hints
@@ -50,23 +52,28 @@ class WebTools:
         Returns:
             Information about company ownership, legal name and official address
         """
+        print(f"FUNCTION CALLED: get_company_identity_info for company: {company_name}")
+        logger.info(f"get_company_identity_info called for company: {company_name}")
+        result = f"""**SEARCH REQUEST**: Use bing_search tool to find comprehensive address and ownership information for {company_name}
+
+        **Search Queries to Use:**
+        1. "{company_name}" + "company address" + "headquarters" + "registered address" + "business address"
+        2. "{company_name}" + "ownership type" + "private public" + "legal name" + "official name"
+
+
+        **Required Information to Find:**
+        - Ownership Type: Determine if this is Private, Public, or Government Sponsored Entity
+        - Legal Name: The official legal name of the entity
+        - Address: The complete registered business address
+        - Address Type: Specify if this is a Company address or Individual address
+
+        {WebTools.formatting_instructions}
+
+        Please search for this information using web search and provide citations with URLs for all sources found."""
         
-        return f"""**SEARCH REQUEST**: Use Bing web search to find comprehensive address and ownership information for {company_name}
-
-**Search Queries to Use:**
-1. "{company_name}" + "company address" + "headquarters" + "registered address" + "business address"
-2. "{company_name}" + "ownership type" + "private public" + "legal name" + "official name"
-
-
-**Required Information to Find:**
-- Ownership Type: Determine if this is Private, Public, or Government Sponsored Entity
-- Legal Name: The official legal name of the entity
-- Address: The complete registered business address
-- Address Type: Specify if this is a Company address or Individual address
-
-{WebTools.formatting_instructions}
-
-Please search for this information using web search and provide citations with URLs for all sources found."""
+        logger.info(f"get_company_identity_info completed for company: {company_name}")
+        return result
+#         logger.info(f"get_company_identity_info completed for company: {company_name}")
 
 #     @staticmethod
 #     @kernel_function(description="Get general business information for a company including public trading status, legal entity details, and financial information.")
@@ -189,8 +196,7 @@ Please search for this information using web search and provide citations with U
         company_name: Annotated[str, "The name of the company to research"]
     ) -> str:
         """Get detailed financial and business profile for KYC risk assessment.
-        
-        Retrieves comprehensive information about the company's business model, 
+                Retrieves comprehensive information about the company's business model, 
         financial status, revenue sources, and industry classification for
         thorough KYC risk evaluation.
         
@@ -200,8 +206,8 @@ Please search for this information using web search and provide citations with U
         Returns:
             Comprehensive business and financial profile information
         """
-        
-        return f"""**SEARCH REQUEST**: Use Bing web search to find a comprehensive financial and business profile for {company_name}
+        logger.info(f"get_financial_business_profile called for company: {company_name}")
+        return f"""**SEARCH REQUEST**: Use bing_search to find a comprehensive financial and business profile for {company_name}
 
 **Search Queries to Use:**
 1. "{company_name}" + "annual revenue" + "business model" + "financial information"
@@ -248,8 +254,8 @@ Please search annual reports, SEC filings, investor presentations, business news
         Returns:
             Identified regulated or high-risk business activities
         """
-        
-        return f"""Please search for detailed information about {company_name}'s business activities and operations. Based on your findings, identify which of the following regulated or high-risk activities the company is engaged in:
+        logger.info(f"get_regulated_activity_details called for company: {company_name}")
+        return f"""**SEARCH REQUEST**: Use bing_search to find about {company_name}'s business activities and operations. Based on your findings, identify which of the following regulated or high-risk activities the company is engaged in:
 
 **Regulated/High-Risk Business Activity Categories:**
 - Money Services Business (MSB)
