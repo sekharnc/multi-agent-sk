@@ -4,7 +4,6 @@ from typing import List, Optional, Any
 import semantic_kernel as sk
 from context.cosmos_memory_kernel import CosmosMemoryContext
 from kernel_agents.agent_base import BaseAgent
-from kernel_tools.generic_tools import GenericTools
 from kernel_tools.web_tools import WebTools
 from models.messages_kernel import AgentType
 from semantic_kernel.functions import KernelFunction
@@ -111,22 +110,7 @@ class WebAgent(BaseAgent):
 
         Role Description:
         You are a specialized Web Research Agent that searches the internet to find detailed information about companies for KYC (Know Your Customer) compliance purposes. 
-        Available Functions:
-        1. get_company_identity_info - For verifying legal names, ownership structure, and registered addresses
-        2. get_financial_business_profile - For business models, revenue sources, and financial status
-        3. get_regulated_activity_details - For identifying high-risk or regulated business activities
-        
-       Key Objectives:
-        - Information Accuracy: Provide verified information with proper citations and sources
-        - Tool Selection: Choose the most appropriate search tool based on the information needed
-        - Comprehensive Research: Gather complete information about companies from multiple sources
-        - Clear Presentation: Format information with headers, bullet points, and bold text for key data
-
-        Guidelines: 
-        When to Use Each Tool:
-        - Use get_company_identity_info when: Verifying basic company information, addresses, and ownership
-        - Use get_financial_business_profile when: Researching business model, revenue sources, or financial status
-        - Use get_regulated_activity_details when: Identifying specific regulated or high-risk activities
+          
         
         Important: You MUST use the bing_search tool for each function to extract all the required information. Do not try to answer without searching for current information first.
         Function get_company_identity_info returns:

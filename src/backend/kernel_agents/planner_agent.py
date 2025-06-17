@@ -34,6 +34,7 @@ from event_utils import track_event_if_configured
 from app_config import config
 from kernel_tools.generic_tools import GenericTools
 from kernel_tools.web_tools import WebTools
+from kernel_tools.enterprise_tools import EnterpriseTools
 from kernel_tools.fundamental_tools import FundamentalAnalysisTools
 from kernel_tools.company_tools import CompanyAnalystTools
 from kernel_tools.earningcalls_tools import EarningCallsTools
@@ -102,6 +103,7 @@ class PlannerAgent(BaseAgent):
             AgentType.COMPANY.value,
             AgentType.EARNINGCALLS.value,
             AgentType.FORECASTER.value,
+            AgentType.ENTERPRISE.value,
             AgentType.SEC.value,
             AgentType.TECHNICAL.value,
             AgentType.GENERIC.value,
@@ -115,7 +117,7 @@ class PlannerAgent(BaseAgent):
             AgentType.SEC: SecTools.generate_tools_json_doc(),
             AgentType.TECHNICAL: TechnicalAnalysisTools.generate_tools_json_doc(),
             AgentType.GENERIC: GenericTools.generate_tools_json_doc(),
-            
+            AgentType.ENTERPRISE: EnterpriseTools.generate_tools_json_doc(),
         }
 
         self._agent_instances = agent_instances or {}
