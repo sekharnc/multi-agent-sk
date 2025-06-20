@@ -283,13 +283,7 @@ class EnterpriseAgent(BaseAgent):
         return True
     
     # Add methods to use the search tool
-    async def search_internal_documents(self, query):
-        if hasattr(self, "search_tool") and self.search_tool:
-            # Use the search tool
-            # Implementation depends on how AzureAISearchTool works
-            pass
-        else:
-            return "Search capability not available"
+# Removed the first definition of search_internal_documents to avoid duplication.
     
     # Add a method to directly access search functionality
     async def search_internal_documents(self, query: str, index_name: str = "sanctiondata-index"):
