@@ -1,7 +1,7 @@
 # app_config.py
 import os
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Union, Dict, Any
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.cosmos.aio import CosmosClient
@@ -11,8 +11,11 @@ from semantic_kernel.contents import ChatHistory
 from semantic_kernel.agents.azure_ai.azure_ai_agent import AzureAIAgent
 from semantic_kernel.functions import KernelFunction
 from azure.monitor.opentelemetry import configure_azure_monitor
-from azure.ai.projects.models import BingGroundingTool  
+from azure.ai.projects.models import BingGroundingTool
+from azure.ai.projects.models import AzureAISearchTool  
 
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
 
 # Load environment variables from .env file
 load_dotenv()
@@ -55,6 +58,15 @@ class AppConfig:
 
         self.BING_CONNECTION_NAME_ENV = self._get_required("BING_CONNECTION_NAME_ENV")
 
+        self.AZURE_AI_SEARCH_INDEX_NAME = self._get_required(
+            "AZURE_AI_SEARCH_INDEX_NAME", "sanctionsdata-index"
+        )
+        # Azure AI Search settings
+        self.AZURE_SEARCH_ENDPOINT = self._get_required("AZURE_SEARCH_ENDPOINT")
+        self.AZURE_SEARCH_API_KEY = self._get_required("AZURE_SEARCH_API_KEY")
+        self.AZURE_SEARCH_ENABLED = self._get_bool("AZURE_SEARCH_ENABLED")
+        self.AZURE_SEARCH_INDEX_NAME = self._get_required("AZURE_SEARCH_INDEX_NAME")
+
         # Azure AI settings
         self.AZURE_AI_SUBSCRIPTION_ID = self._get_required("AZURE_AI_SUBSCRIPTION_ID")
         self.AZURE_AI_RESOURCE_GROUP = self._get_required("AZURE_AI_RESOURCE_GROUP")
@@ -72,6 +84,8 @@ class AppConfig:
         self._cosmos_client = None
         self._cosmos_database = None
         self._ai_project_client = None
+        self._search_client = None
+        
 
     def _get_required(self, name: str, default: Optional[str] = None) -> str:
         """Get a required configuration value from environment variables.
@@ -255,6 +269,113 @@ class AppConfig:
             import traceback
             logging.error(f"Detailed BingGroundingTool error: {traceback.format_exc()}")
             return None
+    async def get_azure_search_client(self) -> Union[SearchClient, None]:
+        """Get or create a Azure AI SearchClient.
+
+        Returns:
+            An instance of SearchClient or None if there's an error or not enabled or not configured
+        """
+        # return if search is not enabled
+        if not self.AZURE_SEARCH_ENABLED:
+            logging.info("Azure AI Search is not enabled or is not set")
+            return None
+        # return cached client if available
+        if self._search_client is not None:
+            logging.info("Using cached SearchClient")
+            return self._search_client
+        
+        try:
+            # check if required configurations are available
+            if not self.AZURE_SEARCH_ENDPOINT or not self.AZURE_AI_SEARCH_INDEX_NAME:
+                logging.error("Required configurations search endpoint or index name are not set or are empty")
+                return None
+            # create cleint with API key if provided, else use azure credentials
+            if self.AZURE_SEARCH_API_KEY:
+                credential = AzureKeyCredential(self.AZURE_SEARCH_API_KEY)
+            else:
+                credential = self.get_azure_credentials()
+                if credential is None:
+                    logging.error("Azure credentials are not available")
+                    return None
+            # Create the SearchClient using the endpoint and credentials
+            logging.info(f"Creating SearchClient for endpoint: {self.AZURE_SEARCH_ENDPOINT}")
+            self._search_client = SearchClient(
+                endpoint=self.AZURE_SEARCH_ENDPOINT,
+                index_name=self.AZURE_AI_SEARCH_INDEX_NAME,
+                credential=credential
+            )
+            logging.info("Successfully created SearchClient")
+            # Return the SearchClient instance  
+            return self._search_client  
+        except Exception as exc:
+            logging.error("Failed to create SearchClient: %s", exc)
+            import traceback
+            logging.error(f"Detailed SearchClient error: {traceback.format_exc()}")
+            return None
+
+    async def get_azure_ai_search_tool(self) -> 'AzureAISearchTool':
+        """Get the AzureAISearchTool using the AIProjectClient.
+
+        Returns:
+            An instance of AzureAISearchTool or None if there's an error
+        """
+        try:
+            client = self.get_ai_project_client()
+            search_index_name = self.AZURE_AI_SEARCH_INDEX_NAME
+            logging.info(f"Getting Azure AI Search index with name: {search_index_name}")
+
+            # Check if we have a valid index name
+            if not search_index_name:
+                logging.error("AZURE_AI_SEARCH_INDEX_NAME is not set or is empty")
+                return None
+
+            try:
+                # Look for a connection with azureAISearch type similar to how we get the Bing connection
+                conn_list = await client.connections.list()
+                for conn in conn_list:
+                    logging.info(f"Checking connection: {conn.id} of type {conn.connection_type}")
+                    if conn.connection_type == "CognitiveSearch":
+                        logging.info(f"Found Azure AI Search connection: {conn.id}")
+                        # Try creating the tool using parameters from the docs
+                        # We may need to adjust parameters based on the exact SDK version
+                        try:
+                            # First attempt - using properties we know from BingGroundingTool
+                            search_tool = AzureAISearchTool(
+                                index_connection_id=conn.id,
+                                index_name=search_index_name
+                            )
+                            logging.info("Successfully created AzureAISearchTool with connection_id and index_name")
+                            return search_tool
+                        except TypeError as e:
+                            logging.warning(f"First attempt failed: {e}, trying alternative parameters...")
+                            try:
+                                # Second attempt - using just index_name
+                                search_tool = AzureAISearchTool(
+                                    index_name=search_index_name
+                                )
+                                logging.info("Successfully created AzureAISearchTool with just index_name")
+                                return search_tool
+                            except TypeError:
+                                # Third attempt - no parameters
+                                search_tool = AzureAISearchTool()
+                                logging.info("Created basic AzureAISearchTool without parameters")
+                                return search_tool
+
+                # These statements should be outside the loop to execute only after checking all connections
+                logging.warning("No Azure AI Search connection found")
+                return None
+                
+            except Exception as search_exc:
+                logging.error(f"Error getting Azure AI Search tool: {search_exc}")
+                import traceback
+                logging.error(f"Detailed search tool error: {traceback.format_exc()}")
+                return None
+
+        except Exception as exc:
+            logging.error(f"Failed to get AzureAISearchTool: {exc}")
+            import traceback
+            logging.error(f"Detailed AzureAISearchTool error: {traceback.format_exc()}")
+            return None
     async def create_azure_ai_agent(
         self,
         agent_name: str,
@@ -353,6 +474,34 @@ class AppConfig:
         except Exception as exc:
             logging.error("Failed to create Azure AI Agent: %s", exc)
             raise
+
+    def get_azure_ai_search_tool_sync(self) -> 'AzureAISearchTool':
+        """Synchronous version of get_azure_ai_search_tool.
+        
+        Returns:
+            An instance of AzureAISearchTool or None if there's an error
+        """
+        try:
+            import asyncio
+            # Use the event loop if available or create a new one
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # We're in an async context already
+                    return asyncio.create_task(self.get_azure_ai_search_tool())
+                else:
+                    # We're in a sync context
+                    return loop.run_until_complete(self.get_azure_ai_search_tool())
+            except RuntimeError:
+                # No event loop available, create a new one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(self.get_azure_ai_search_tool())
+                loop.close()
+                return result
+        except Exception as e:
+            logging.error(f"Error in get_azure_ai_search_tool_sync: {e}")
+            return None
 
 
 # Create a global instance of AppConfig

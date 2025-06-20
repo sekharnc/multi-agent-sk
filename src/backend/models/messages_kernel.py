@@ -42,6 +42,7 @@ class AgentType(str, Enum):
     HUMAN = "Human_Agent"
     WEB = "Web_Agent"
     GENERIC = "Generic_Agent"
+    ENTERPRISE = "Enterprise_Agent"
     GROUP_CHAT_MANAGER = "Group_Chat_Manager"
     PLANNER = "Planner_Agent"
     COMPANY = "Company_Analyst_Agent"

@@ -23,6 +23,7 @@ from kernel_agents.technical_agent import TechnicalAnalysisAgent
 from kernel_agents.sec_agent import SecAgent
 from kernel_agents.forecaster_agent import ForecasterAgent
 from kernel_agents.web_agent import WebAgent  # Import WebAgent for generic web tasks
+from kernel_agents.enterprise_agent import EnterpriseAgent  # Import EnterpriseAgent for enterprise tasks
 from kernel_agents.generic_agent import GenericAgent
 from kernel_agents.planner_agent import PlannerAgent  # Add PlannerAgent import
 from kernel_agents.group_chat_manager import GroupChatManager
@@ -49,6 +50,7 @@ class AgentFactory:
         AgentType.TECHNICAL: TechnicalAnalysisAgent,
         AgentType.SEC: SecAgent,
         AgentType.FORECASTER: ForecasterAgent,
+        AgentType.ENTERPRISE: EnterpriseAgent,  # Add EnterpriseAgent for enterprise tasks
         AgentType.GENERIC: GenericAgent,
         AgentType.WEB: WebAgent,  # Add WebAgent for generic web tasks
         AgentType.HUMAN: HumanAgent,
@@ -64,6 +66,7 @@ class AgentFactory:
         AgentType.TECHNICAL: AgentType.TECHNICAL.value,
         AgentType.SEC: AgentType.SEC.value,
         AgentType.FORECASTER: AgentType.FORECASTER.value,
+        AgentType.ENTERPRISE: AgentType.ENTERPRISE.value,  # Use ENTERPRISE for enterprise tasks
         AgentType.GENERIC: AgentType.GENERIC.value, 
         AgentType.WEB: AgentType.WEB.value,  # Use WEB for generic web tasks    
         AgentType.HUMAN: AgentType.HUMAN.value,
@@ -79,6 +82,7 @@ class AgentFactory:
         AgentType.TECHNICAL: TechnicalAnalysisAgent.default_system_message(),
         AgentType.SEC: SecAgent.default_system_message(),
         AgentType.FORECASTER: ForecasterAgent.default_system_message(),
+        AgentType.ENTERPRISE: EnterpriseAgent.default_system_message(),
         AgentType.GENERIC: GenericAgent.default_system_message(),
         AgentType.WEB: WebAgent.default_system_message(),
         AgentType.HUMAN: HumanAgent.default_system_message(),
@@ -290,6 +294,7 @@ class AgentFactory:
         planner_agent_type = AgentType.PLANNER
         group_chat_manager_type = AgentType.GROUP_CHAT_MANAGER
         web_agent_type = AgentType.WEB
+        enterprise_agent_type = AgentType.ENTERPRISE
         
 
         try:
@@ -311,6 +316,15 @@ class AgentFactory:
             if agent_type == web_agent_type:
                 # For web agent type, use the specialized create_web_agent method
                 agents[agent_type] = await cls.create_web_agent(
+                    session_id=session_id,
+                    user_id=user_id,
+                    temperature=temperature,
+                    client=client,
+                    memory_store=memory_store,
+                )
+            elif agent_type == enterprise_agent_type:
+                # For enterprise agent type, use the specialized create_enterprise_agent method
+                agents[agent_type] = await cls.create_enterprise_agent(
                     session_id=session_id,
                     user_id=user_id,
                     temperature=temperature,
@@ -453,7 +467,7 @@ class AgentFactory:
             and agent_type in cls._agent_cache[session_id]
         ):
             logger.info(
-                f"Returning cached web agent instance for session {session_id}"
+                f"create_web_agent: Returning cached web agent instance for session {session_id}"
             )
             return cls._agent_cache[session_id][agent_type]
         
@@ -489,13 +503,13 @@ class AgentFactory:
         tools = None        # Import and set up BingGroundingTool
         try:
             bing_tool = await config.get_bing_tool()
-            logger.info(f"Successfully created BingGroundingTool instance: {type(bing_tool)}")
+            logger.info(f"create_web_agent: Successfully created BingGroundingTool instance: {type(bing_tool)}")
         except Exception as bing_exc:
-            logger.error(f"Error setting up BingGroundingTool: {bing_exc}")
+            logger.error(f"create_web_agent: Error setting up BingGroundingTool: {bing_exc}")
             import traceback
-            logger.error(f"Detailed BingGroundingTool error: {traceback.format_exc()}")
+            logger.error(f"create_web_agent: Detailed BingGroundingTool error: {traceback.format_exc()}")
             bing_tool = None
-            logger.warning("WebAgent will operate without BingGroundingTool")
+            logger.warning("create_web_agent: WebAgent will operate without BingGroundingTool")
 
         # Build the agent definition (functions schema)
         definition = None
@@ -505,7 +519,7 @@ class AgentFactory:
                 # Create the AIProjectClient instance using the config
                 client = config.get_ai_project_client()
         except Exception as client_exc:
-            logger.error(f"Error creating AIProjectClient for web agent: {client_exc}")
+            logger.error(f"create_web_agent: Error creating AIProjectClient for web agent: {client_exc}")
             raise
 
         try:
@@ -537,31 +551,31 @@ class AgentFactory:
                         tool_def = bing_tool.definitions
                         
                         # More detailed logging for debugging tool structure
-                        logger.info(f"Available methods on client.agents: {[method for method in dir(client.agents) if not method.startswith('_')]}")
-                        logger.info(f"Tool definition structure: {type(tool_def)}")
+                        #logger.info(f"create_web_agent: Available methods on client.agents: {[method for method in dir(client.agents) if not method.startswith('_')]}")
+                        logger.info(f"create_web_agent: Tool definition structure: {type(tool_def)}")
                         
                         # Check if tool_def is properly structured
                         if isinstance(tool_def, list):
-                            logger.info(f"Tool definition is a list with {len(tool_def)} items")
+                            logger.info(f"create_web_agent: Tool definition is a list with {len(tool_def)} items")
                             for i, tool in enumerate(tool_def):
-                                logger.info(f"Tool {i} type: {type(tool)}, keys: {tool.keys() if hasattr(tool, 'keys') else 'N/A'}")
+                                logger.info(f"create_web_agent: Tool {i} type: {type(tool)}, keys: {tool.keys() if hasattr(tool, 'keys') else 'N/A'}")
                             
                             # Ensure the Bing tool is configured correctly
                             for tool in tool_def:
                                 if hasattr(tool, 'get') and tool.get('name') == 'bing_search':
-                                    logger.info("Found Bing search tool in definition")
+                                    logger.info("create_web_agent: Found Bing search tool in definition")
                                     break
                             else:
-                                logger.warning("Bing search tool not found in tool definitions")
+                                logger.warning("create_web_agent: Bing search tool not found in tool definitions")
                             
                             # Update the agent with the tool list
                             await client.agents.update_agent(
                                 agent_id=definition.id,
                                 tools=tool_def  # Pass the list directly
                             )
-                            logger.info(f"Updated agent with tools")
+                            logger.info(f"create_web_agent: Updated agent with tools")
                         else:
-                            logger.info(f"Tool definition is not a list, wrapping in list: {tool_def}")
+                            logger.info(f"create_web_agent: Tool definition is not a list, wrapping in list: {tool_def}")
                             await client.agents.update_agent(
                                 agent_id=definition.id,
                                 tools=[tool_def]  # Wrap in a list if it's a single object
@@ -569,19 +583,19 @@ class AgentFactory:
                         
                         # Make an explicit verification call to ensure tool was added
                         updated_agent = await client.agents.get_agent(definition.id)
-                        logger.info(f"Verified agent tools: {getattr(updated_agent, 'tools', 'No tools attribute')}")
-                        logger.info(f"Added BingGroundingTool to web agent {agent_type_str}")
+                        logger.info(f"create_web_agent: Verified agent tools: {getattr(updated_agent, 'tools', 'No tools attribute')}")
+                        logger.info(f"create_web_agent: Added BingGroundingTool to web agent {agent_type_str}")
                     except Exception as tool_exc:
-                        logger.error(f"Error adding BingGroundingTool to agent: {tool_exc}")
+                        logger.error(f"create_web_agent: Error adding BingGroundingTool to agent: {tool_exc}")
                         import traceback
-                        logger.error(f"Detailed error: {traceback.format_exc()}")
+                        logger.error(f"create_web_agent: Detailed error: {traceback.format_exc()}")
                     
                 logger.info(
-                    f"Successfully created web agent definition for {agent_type_str}"
+                    f"create_web_agent: Successfully created web agent definition for {agent_type_str}"
                 )
         except Exception as agent_exc:
             logger.error(
-                f"Error creating web agent definition with AIProjectClient: {agent_exc}"
+                f"create_web_agent: Error creating web agent definition with AIProjectClient: {agent_exc}"
             )
             raise
 
@@ -591,9 +605,9 @@ class AgentFactory:
             valid_keys = set(agent_init_params.keys()) - {"self"}
             
             # Make sure bing_tool will be passed - log its presence in valid keys
-            logger.info(f"WebAgent __init__ params: {valid_keys}")
+            logger.info(f"create_web_agent: WebAgent __init__ params: {valid_keys}")
             if "bing_tool" not in valid_keys:
-                logger.warning("bing_tool is not in WebAgent's __init__ valid parameters - will add it explicitly")
+                logger.warning("create_web_agent: bing_tool is not in WebAgent's __init__ valid parameters - will add it explicitly")
             
             filtered_kwargs = {
                 k: v
@@ -622,12 +636,12 @@ class AgentFactory:
                 init_result = await agent.async_init()
                 if init_result is False:  # Check if initialization failed
                     logger.error(
-                        f"Async initialization failed for {agent_type_str} agent"
+                        f"create_web_agent: Async initialization failed for {agent_type_str} agent"
                     )
                     raise ValueError(f"Failed to initialize {agent_type_str} agent")        
         except Exception as e:
                 logger.error(
-                    f"Error creating web agent: {e}"
+                    f"create_web_agent: Error creating web agent: {e}"
                 )
                 raise
 
@@ -635,20 +649,20 @@ class AgentFactory:
         try:
             agent_def = await client.agents.get_agent(definition.id)
             agent_tools = getattr(agent_def, 'tools', [])
-            logger.info(f"Agent tools after creation: {agent_tools}")
+            logger.info(f"create_web_agent: Agent tools after creation: {agent_tools}")
             
             # Check if bing_search is in the tools
             bing_found = False
             for tool in agent_tools:
                 if hasattr(tool, 'get') and tool.get('name') == 'bing_search':
                     bing_found = True
-                    logger.info("bing_search tool found in agent tools!")
+                    logger.info("create_web_agent: bing_search tool found in agent tools!")
                     break
             
             if not bing_found:
-                logger.warning("bing_search tool NOT found in agent tools!")
+                logger.warning("create_web_agent: bing_search tool NOT found in agent tools!")
         except Exception as inspect_exc:
-            logger.error(f"Error inspecting agent tools: {inspect_exc}")
+            logger.error(f"create_web_agent: Error inspecting agent tools: {inspect_exc}")
 
         # Cache the agent instance
         if session_id not in cls._agent_cache:
@@ -656,3 +670,203 @@ class AgentFactory:
         cls._agent_cache[session_id][agent_type] = agent
 
         return agent
+
+    @classmethod
+    async def create_enterprise_agent(
+        cls,
+        session_id: str,
+        user_id: str,
+        temperature: float = 0.0,
+        memory_store: Optional[CosmosMemoryContext] = None,
+        system_message: Optional[str] = None,
+        response_format: Optional[Any] = None,
+        client: Optional[Any] = None,
+        **kwargs,
+    ) -> BaseAgent:
+        """Create and initialize an Enterprise agent.
+        
+        This method creates an Enterprise agent with the AzureAISearch tool configured.
+        """
+        agent_type = AgentType.ENTERPRISE
+        # Check if we already have an agent in the cache
+        if (
+            session_id in cls._agent_cache
+            and agent_type in cls._agent_cache[session_id]
+        ):
+            logger.info(
+                f"Returning cached Enterprise agent instance for session {session_id}"
+            )   
+            return cls._agent_cache[session_id][agent_type]
+
+        # Create a memory store if one is not provided
+        if memory_store is None:
+            memory_store = CosmosMemoryContext(session_id=session_id, user_id=user_id)
+        
+        # Get the system message
+        if system_message is None:
+            system_message = EnterpriseAgent.default_system_message()
+        
+        # Setup search tool explicitly first - we need to ensure it succeeds
+        try:
+            search_tool = await config.get_azure_ai_search_tool()
+            logger.info(f"create_enterprise_agent: Successfully created AzureAISearchTool instance: {type(search_tool)}")
+            if not search_tool:
+                logger.error("create_enterprise_agent: AzureAISearchTool returned None")
+                raise ValueError("AzureAISearchTool creation failed")
+        except Exception as search_exc:
+            logger.error(f"create_enterprise_agent: Error setting up AzureAISearchTool: {search_exc}")
+            import traceback
+            logger.error(f"create_enterprise_agent: Detailed AzureAISearchTool error: {traceback.format_exc()}")
+            search_tool = None
+            raise ValueError(f"Failed to initialize AzureAISearchTool: {search_exc}")
+
+        # Create the client if not provided
+        if client is None:
+            try:
+                client = config.get_ai_project_client()
+                if not client:
+                    logger.error("create_enterprise_agent: AI Project client is None")
+                    raise ValueError("AI Project client creation failed")
+            except Exception as client_exc:
+                logger.error(f"create_enterprise_agent: Error creating AIProjectClient: {client_exc}")
+                raise
+    
+        # For enterprise agent, get the agent type string
+        agent_type_str = cls._agent_type_strings.get(
+            agent_type, agent_type.value.lower()
+        )
+        
+        # Create or get the agent definition
+        definition = None
+        try:
+            # First, check if the agent already exists
+            agent_id = None
+            found_agent = False
+            agent_list = await client.agents.list_agents()
+            
+            for agent in agent_list.data:
+                if agent.name == agent_type_str:
+                    agent_id = agent.id
+                    found_agent = True
+                    logger.info(f"create_enterprise_agent: Found existing agent with ID {agent_id}")
+                    break
+            
+            if found_agent:
+                # Get existing agent definition
+                definition = await client.agents.get_agent(agent_id)
+                logger.info(f"create_enterprise_agent: Retrieved existing agent definition")
+                
+                # Delete the existing agent to recreate it with proper tools
+                await client.agents.delete_agent(agent_id)
+                logger.info(f"create_enterprise_agent: Deleted existing agent to recreate with updated tools")
+                found_agent = False
+            
+            # Create a new agent definition
+            if not found_agent:
+                definition = await client.agents.create_agent(
+                    model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
+                    name=agent_type_str,
+                    instructions=system_message,
+                    temperature=temperature,
+                    response_format=response_format,
+                )
+                logger.info(f"create_enterprise_agent: Created new agent definition with ID {definition.id}")
+        
+        except Exception as agent_exc:
+            logger.error(f"create_enterprise_agent: Error creating agent definition: {agent_exc}")
+            import traceback
+            logger.error(f"create_enterprise_agent: Detailed error: {traceback.format_exc()}")
+            raise
+        
+        # Now add the search tool to the agent
+        if search_tool:
+            try:
+                # Get the tool definitions
+                tool_defs = search_tool.definitions
+                tool_resources = search_tool.resources
+                
+                if not tool_defs:
+                    logger.error("create_enterprise_agent: Search tool definitions are empty")
+                    raise ValueError("Search tool definitions are empty")
+                
+                # Ensure tool_defs is a list
+                if not isinstance(tool_defs, list):
+                    tool_defs = [tool_defs]
+                
+                # Log the tool definitions for debugging
+                for i, tool in enumerate(tool_defs):
+                    logger.info(f"create_enterprise_agent: Tool {i} schema: {tool}")
+                
+                # Update the agent with the tool
+                await client.agents.update_agent(
+                    agent_id=definition.id,
+                    tools=tool_defs,
+                    tool_resources=tool_resources if tool_resources else None,               
+                )
+                logger.info(f"create_enterprise_agent: Added Azure AI Search tool to agent {definition.id}")
+                
+                # Verify the tool was added successfully
+                updated_def = await client.agents.get_agent(definition.id)
+                updated_tools = getattr(updated_def, 'tools', [])
+                logger.info(f"create_enterprise_agent: Updated agent has {len(updated_tools)} tools")
+                
+                search_tool_found = False
+                for tool in updated_tools:
+                    if isinstance(tool, dict) and tool.get('name') == 'azure_ai_search':
+                        search_tool_found = True
+                        logger.info("create_enterprise_agent: Verified Azure AI Search tool was added")
+                        break
+                
+                if not search_tool_found:
+                    logger.error("create_enterprise_agent: Azure AI Search tool not found in updated agent tools")
+                    logger.error(f"create_enterprise_agent: Available tools: {updated_tools}")
+            except Exception as tool_exc:
+                logger.error(f"create_enterprise_agent: Error adding Azure AI Search tool: {tool_exc}")
+                import traceback
+                logger.error(f"create_enterprise_agent: Detailed error: {traceback.format_exc()}")
+                raise ValueError(f"Failed to add search tool to agent: {tool_exc}")
+    
+        # Create the EnterpriseAgent instance
+        try:
+            # Get valid initialization parameters
+            agent_class = cls._agent_classes.get(agent_type)
+            agent_init_params = inspect.signature(agent_class.__init__).parameters
+            valid_keys = set(agent_init_params.keys()) - {"self"}
+            
+            # Add search_tool explicitly regardless of parameter filtering
+            filtered_kwargs = {
+                k: v
+                for k, v in {
+                    "agent_name": agent_type_str,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "memory_store": memory_store,
+                    "system_message": system_message,
+                    "client": client,
+                    "definition": definition,
+                    **kwargs,
+                }.items()
+                if k in valid_keys
+            }
+            
+            # Explicitly add search_tool to ensure it's passed
+            filtered_kwargs["search_tool"] = search_tool
+            
+            # Create the agent instance
+            agent = agent_class(**filtered_kwargs)
+            
+            # Initialize the agent
+            if hasattr(agent, "async_init") and inspect.iscoroutinefunction(agent.async_init):
+                await agent.async_init()
+            
+            # Cache the agent
+            if session_id not in cls._agent_cache:
+                cls._agent_cache[session_id] = {}
+            cls._agent_cache[session_id][agent_type] = agent
+            
+            return agent
+        except Exception as e:
+            logger.error(f"create_enterprise_agent: Error creating EnterpriseAgent instance: {e}")
+            import traceback
+            logger.error(f"create_enterprise_agent: Detailed error: {traceback.format_exc()}")
+            raise

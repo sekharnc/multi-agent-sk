@@ -16,6 +16,7 @@ from context.cosmos_memory_kernel import CosmosMemoryContext
 
 # Import agent factory and the new AppConfig
 from kernel_agents.agent_factory import AgentFactory
+from kernel_agents.enterprise_agent import EnterpriseAgent
 from kernel_agents.generic_agent import GenericAgent
 from kernel_agents.web_agent import WebAgent
 from kernel_agents.group_chat_manager import GroupChatManager
@@ -94,6 +95,7 @@ async def get_agents(session_id: str, user_id: str) -> Dict[str, Any]:
         agent_classes = {
             
             AgentType.WEB: WebAgent.__name__,
+            AgentType.ENTERPRISE: EnterpriseAgent.__name__,
             AgentType.SEC: SecAgent.__name__,
             AgentType.COMPANY: CompanyAnalystAgent.__name__,
             AgentType.EARNINGCALLS: EarningCallsAgent.__name__,

@@ -92,6 +92,7 @@ class GroupChatManager(BaseAgent):
             AgentType.TECHNICAL.value,
             AgentType.FORECASTER.value,
             AgentType.SEC.value,
+            AgentType.ENTERPRISE.value,
             AgentType.GENERIC.value,            
         ]
         self._agent_tools_list = agent_tools_list or []
@@ -409,7 +410,7 @@ class GroupChatManager(BaseAgent):
                     # Wait for the response with a timeout
                     response = await asyncio.wait_for(
                         agent.handle_action_request(action_request),
-                        timeout=20.0  # 20 seconds timeout
+                        timeout=90.0  # 90 seconds timeout
                     )
                     
                     logging.info(f"Received response from {step.agent.value}: {type(response).__name__}")
@@ -428,9 +429,9 @@ class GroupChatManager(BaseAgent):
                     logging.info(f"Step {step.id} marked as completed")
                     
                 except asyncio.TimeoutError:
-                    logging.error(f"Action request to {step.agent.value} timed out after 20 seconds")
+                    logging.error(f"Action request to {step.agent.value} timed out after 90 seconds")
                     step.status = StepStatus.failed
-                    step.agent_reply = f"Failed due to timeout after 60 seconds"
+                    step.agent_reply = f"Failed due to timeout after 90 seconds"
                     await self._memory_store.update_step(step)
                     return
                     

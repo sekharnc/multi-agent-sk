@@ -161,6 +161,9 @@ class BaseAgent(AzureAIAgent):
             # thread = self.client.agents.get_thread(
             #     thread=step.session_id
             # )  # AzureAIAgentThread(thread_id=step.session_id)
+            
+            logging.info(f">>>Invoking agent {self._agent_name} with action request: {action_request.action}")
+            logging.info(f">>>Chat history: {self._chat_history}")
             async_generator = self._agent.invoke(
                 messages=f"{str(self._chat_history)}\n\nPlease perform this action",
                 thread=thread,
