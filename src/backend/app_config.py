@@ -1,7 +1,7 @@
 # app_config.py
 import os
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Union, Dict, Any
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.cosmos.aio import CosmosClient
@@ -14,6 +14,8 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 from azure.ai.projects.models import BingGroundingTool
 from azure.ai.projects.models import AzureAISearchTool  
 
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
 
 # Load environment variables from .env file
 load_dotenv()
@@ -59,6 +61,11 @@ class AppConfig:
         self.AZURE_AI_SEARCH_INDEX_NAME = self._get_required(
             "AZURE_AI_SEARCH_INDEX_NAME", "sanctionsdata-index"
         )
+        # Azure AI Search settings
+        self.AZURE_SEARCH_ENDPOINT = self._get_required("AZURE_SEARCH_ENDPOINT")
+        self.AZURE_SEARCH_API_KEY = self._get_required("AZURE_SEARCH_API_KEY")
+        self.AZURE_SEARCH_ENABLED = self._get_bool("AZURE_SEARCH_ENABLED")
+        self.AZURE_SEARCH_INDEX_NAME = self._get_required("AZURE_SEARCH_INDEX_NAME")
 
         # Azure AI settings
         self.AZURE_AI_SUBSCRIPTION_ID = self._get_required("AZURE_AI_SUBSCRIPTION_ID")
@@ -77,6 +84,8 @@ class AppConfig:
         self._cosmos_client = None
         self._cosmos_database = None
         self._ai_project_client = None
+        self._search_client = None
+        
 
     def _get_required(self, name: str, default: Optional[str] = None) -> str:
         """Get a required configuration value from environment variables.
@@ -260,6 +269,50 @@ class AppConfig:
             import traceback
             logging.error(f"Detailed BingGroundingTool error: {traceback.format_exc()}")
             return None
+    async def get_azure_search_client(self) -> Union[SearchClient, None]:
+        """Get or create a Azure AI SearchClient.
+
+        Returns:
+            An instance of SearchClient or None if there's an error or not enabled or not configured
+        """
+        # return if search is not enabled
+        if not self.AZURE_SEARCH_ENABLED:
+            logging.info("Azure AI Search is not enabled or is not set")
+            return None
+        # return cached client if available
+        if self._search_client is not None:
+            logging.info("Using cached SearchClient")
+            return self._search_client
+        
+        try:
+            # check if required configurations are available
+            if not self.AZURE_SEARCH_ENDPOINT or not self.AZURE_AI_SEARCH_INDEX_NAME:
+                logging.error("Required configurations search endpoint or index name are not set or are empty")
+                return None
+            # create cleint with API key if provided, else use azure credentials
+            if self.AZURE_SEARCH_API_KEY:
+                credential = AzureKeyCredential(self.AZURE_SEARCH_API_KEY)
+            else:
+                credential = self.get_azure_credentials()
+                if credential is None:
+                    logging.error("Azure credentials are not available")
+                    return None
+            # Create the SearchClient using the endpoint and credentials
+            logging.info(f"Creating SearchClient for endpoint: {self.AZURE_SEARCH_ENDPOINT}")
+            self._search_client = SearchClient(
+                endpoint=self.AZURE_SEARCH_ENDPOINT,
+                index_name=self.AZURE_AI_SEARCH_INDEX_NAME,
+                credential=credential
+            )
+            logging.info("Successfully created SearchClient")
+            # Return the SearchClient instance  
+            return self._search_client  
+        except Exception as exc:
+            logging.error("Failed to create SearchClient: %s", exc)
+            import traceback
+            logging.error(f"Detailed SearchClient error: {traceback.format_exc()}")
+            return None
+
     async def get_azure_ai_search_tool(self) -> 'AzureAISearchTool':
         """Get the AzureAISearchTool using the AIProjectClient.
 
