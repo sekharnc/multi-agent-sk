@@ -1,6 +1,6 @@
 import logging
 from typing import List, Optional, Any
-
+import re 
 import semantic_kernel as sk
 from context.cosmos_memory_kernel import CosmosMemoryContext
 from kernel_agents.agent_base import BaseAgent
@@ -108,56 +108,29 @@ class WebAgent(BaseAgent):
         Role: Web Research Specialist for KYC Compliance
         Primary Responsibility: Gather accurate, verifiable company information for regulatory compliance
 
-        Role Description:
-        You are a specialized Web Research Agent that searches the internet to find detailed information about companies for KYC (Know Your Customer) compliance purposes. 
-          
-        
-        Important: You MUST use the bing_search tool for each function to extract all the required information. Do not try to answer without searching for current information first.
-        Function get_company_identity_info returns:
-        - **Company Name:** Legal name of the company 
-        - **Ownership Type:** Determine if this is Private, Public, or Government Sponsored Entity
-        - **Address:** The complete registered business address
-        - **Address Type:** Specify if this is a Company address or Individual address
-        Function get_financial_business_profile returns:
-        - **Publicly Traded:** Yes/No
-        - **Stock Ticker & Exchange (if applicable)**
-        - **Legal Entity Type**
-        - **Country of Incorporation and Headquarters**    
-        - **Estimated Annual Revenue**
-        - **Primary Revenue Sources**
-        - **Business Model Description**
-        - **Major Clients/Customers**
-        - **Investment/Funding Sources**
-        - **Asset Base**
-        - **Industry Classification Codes:** Relevant industry codes (e.g., NAICS, SIC)  
-        - **Primary Industry Sector**
-        Function get_regulated_activity_details returns:
-        - **Primary Regulated Activities:** List of any Main regulated activities the company engages in
-        - **Secondary Regulated Activities:** List of any additional regulated activities the company engages in
-        - **Compliance Status:** Information on compliance with regulations
-        - **Licenses and Permits:** Relevant licenses or permits held by the company
-        - **Products/Services:** List of main products or services offered by the company
-        - **Risk Factors:** Any known risk factors associated with the company or its activities
-        Important: Always use the bing_search tool to gather information for these functions. Do not attempt to answer without searching first.
-        Search Guidelines:
-        - Use the bing_search tool to find the most recent and relevant information
-        - Focus on official sources, news articles, and reputable business directories
-        - Verify information from multiple sources when possible
-        Formatting Guidelines:
-        - Organize all search results in a clear markdown structure
-        - Use headers and bullet points for readability
-        - Always include a Sources section with URLs
-        - Format company name as an H4 header
-        - Format section titles as H5 headers
-        - Bold all key data points found
-        Example format:
-        #### [Company Name] Information
-        ##### [Section Title]
-        - **[Data Point Label]:** [Value found]
-        - **[Data Point Label]:** [Value found]
-        ##### Sources
-        - [Source name 1]: [URL]
-        - [Source name 2]: [URL]
+        IMPORTANT INSTRUCTIONS:
+        1. You have access to web search capabilities through the bing_search tool
+        2. When a function returns "EXECUTE SEARCH:" instructions, you MUST perform those searches
+        3. DO NOT return the search instructions to the user - execute the searches and return formatted results
+        4. Only execute searches for the SPECIFIC function that was called - do not call other functions
+        5. Focus only on the information requested by the current function call
+
+        Function Handling:
+        - When get_company_identity_info() is called, search ONLY for identity information
+        - When get_financial_business_profile() is called, search ONLY for financial information  
+        - When get_regulated_activity_details() is called, search ONLY for regulatory information
+        - Always format results according to the specific format requested by each function
+        - Include proper source citations
+
+        Search Process:
+        1. Read the search instructions from the function result
+        2. Execute targeted searches using the bing_search tool for ONLY the requested information
+        3. Analyze and compile ONLY the search results relevant to the current function
+        4. Format the final response according to the specified format
+        5. Include proper source citations
+
+        CRITICAL: Only search for and return information related to the specific function that was called.
+        Do NOT execute multiple functions or mix information from different functions.
         """
 
     @property
@@ -169,42 +142,45 @@ class WebAgent(BaseAgent):
     async def handle_action_request(self, action_request):
         """Handle an action request by processing it through the agent."""
         try:
-            logger.info(f"WebAgent received action request: {action_request.action[:100]}...")
+            logger.info(f"WebAgent received action request: {action_request.action}...")
             
             # Reset tracking variables for this request
             self._bing_was_used = False
-              # Check if action likely requires web search
-            needs_search = self._should_use_bing(action_request.action)
-            self._last_action_required_search = needs_search
             
-            # Log BingGroundingTool status
-            if needs_search:
-                if self.bing_tool:  # Changed from self._bing_tool to self.bing_tool
-                    logger.info("Action requires web search and BingGroundingTool is available")
-                else:
-                    logger.warning("Action requires web search but BingGroundingTool is NOT available")
-                
-                logger.info("Action likely requires web search, will use Bing tool")
-                # Modify the action request to explicitly instruct Bing usage
+            # Extract the specific function being called
+            function_match = self.extract_function_name(action_request.action)
+                        
+            if function_match:
                 enhanced_action = f"""
-                IMPORTANT: Use the bing_search tool to search for information related to this request.
-
+                IMPORTANT: Only focus on last assistant message and the function call.
+                
                 {action_request.action}
+                
+                Execute the search instructions returned by the function and provide formatted results.
                 """
                 action_request.action = enhanced_action
-            logger.info(f"Processed action request for WebAgent: {action_request.action[:100]}...")
-            # If Bing tool is available and action requires search, ensure it's used
+            
+            logger.info(f"Processed action request for WebAgent with function: {function_match}")
+            
             # Process the request through the agent
             response = await super().handle_action_request(action_request)
-            
-            # For future improvement: Add logic to detect if Bing was actually used
-            # This would require monitoring the tool calls made during execution
             
             return response
         except Exception as e:
             logger.exception(f"Error in WebAgent.handle_action_request: {e}")
             return f"Error processing request: {str(e)}"
-            
+    
+    def extract_function_name(self, text):
+        # Define the pattern to search for the function name
+        pattern = r'<conversation_history \\\>.*?Function: (\w+)'
+        # Search for the pattern in the text
+        match = re.search(pattern, text)
+        # If a match is found, return the function name
+        if match:
+            return match.group(1)
+        else:
+            return None
+       
     def _should_use_bing(self, action_text):
         """Simple heuristic to determine if an action likely requires search."""
         search_triggers = [
