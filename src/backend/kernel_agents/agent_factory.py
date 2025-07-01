@@ -550,46 +550,41 @@ class AgentFactory:
                         # Register the Bing grounding tool with the agent definition
                         tool_def = bing_tool.definitions
                         
-                        # More detailed logging for debugging tool structure
-                        #logger.info(f"create_web_agent: Available methods on client.agents: {[method for method in dir(client.agents) if not method.startswith('_')]}")
-                        logger.info(f"create_web_agent: Tool definition structure: {type(tool_def)}")
+                        # Ensure it's a list
+                        if not isinstance(tool_def, list):
+                            tool_def = [tool_def]
                         
-                        # Check if tool_def is properly structured
-                        if isinstance(tool_def, list):
-                            logger.info(f"create_web_agent: Tool definition is a list with {len(tool_def)} items")
-                            for i, tool in enumerate(tool_def):
-                                logger.info(f"create_web_agent: Tool {i} type: {type(tool)}, keys: {tool.keys() if hasattr(tool, 'keys') else 'N/A'}")
-                            
-                            # Ensure the Bing tool is configured correctly
-                            for tool in tool_def:
-                                if hasattr(tool, 'get') and tool.get('name') == 'bing_search':
-                                    logger.info("create_web_agent: Found Bing search tool in definition")
-                                    break
-                            else:
-                                logger.warning("create_web_agent: Bing search tool not found in tool definitions")
-                            
-                            # Update the agent with the tool list
-                            await client.agents.update_agent(
-                                agent_id=definition.id,
-                                tools=tool_def  # Pass the list directly
-                            )
-                            logger.info(f"create_web_agent: Updated agent with tools")
-                        else:
-                            logger.info(f"create_web_agent: Tool definition is not a list, wrapping in list: {tool_def}")
-                            await client.agents.update_agent(
-                                agent_id=definition.id,
-                                tools=[tool_def]  # Wrap in a list if it's a single object
-                            )
+                        # Update agent with tools
+                        await client.agents.update_agent(
+                            agent_id=definition.id,
+                            tools=tool_def
+                        )
                         
-                        # Make an explicit verification call to ensure tool was added
+                        # Verify the tool was added
                         updated_agent = await client.agents.get_agent(definition.id)
-                        logger.info(f"create_web_agent: Verified agent tools: {getattr(updated_agent, 'tools', 'No tools attribute')}")
-                        logger.info(f"create_web_agent: Added BingGroundingTool to web agent {agent_type_str}")
+                        agent_tools = getattr(updated_agent, 'tools', [])
+                        
+                        # Log for debugging
+                        logger.info(f"Agent has {len(agent_tools)} tools after update")
+                        
+                        # Log all tools for inspection
+                        for i, tool in enumerate(agent_tools):
+                            logger.info(f"Tool {i}: {tool}")
+
+                        # Don't fail if we can't verify - just warn
+                        if len(agent_tools) == 0:
+                            logger.warning("No tools found in agent after Bing tool registration")
+                            logger.warning("WebAgent may not have search capabilities")
+                        else:
+                            logger.info("Tools successfully registered with agent")
+                        
+                        # Continue without raising an error
+                        logger.info("Continuing with agent creation despite tool verification uncertainty")
+                        
                     except Exception as tool_exc:
-                        logger.error(f"create_web_agent: Error adding BingGroundingTool to agent: {tool_exc}")
-                        import traceback
-                        logger.error(f"create_web_agent: Detailed error: {traceback.format_exc()}")
-                    
+                        logger.error(f"Error registering Bing tool: {tool_exc}")
+                        raise
+                
                 logger.info(
                     f"create_web_agent: Successfully created web agent definition for {agent_type_str}"
                 )

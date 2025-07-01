@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 from semantic_kernel.functions import kernel_function
 from typing import Any, Dict, List, get_type_hints
 from models.messages_kernel import AgentType
+from app_config import config
 
 class WebTools:
     """Define Web Agent functions (tools) for KYC-related company information gathering"""
@@ -41,38 +42,31 @@ class WebTools:
     async def get_company_identity_info(
         company_name: Annotated[str, "The name of the company to research"]
     ) -> str:
-        """Get company identity information for KYC verification.
-        
-        Retrieves the legal identity information and address details needed to verify
-        the company's existence and registration status.
-        
-        Args:
-            company_name: The name of the company to research
-            
-        Returns:
-            Information about company ownership, legal name and official address
-        """
-        print(f"FUNCTION CALLED: get_company_identity_info for company: {company_name}")
+        """Get company identity information for KYC verification."""
         logger.info(f"get_company_identity_info called for company: {company_name}")
-        result = f"""**SEARCH REQUEST**: Use bing_search tool to find comprehensive address and ownership information for {company_name}
-
-        **Search Queries to Use:**
-        1. "{company_name}" + "company address" + "headquarters" + "registered address" + "business address"
-        2. "{company_name}" + "ownership type" + "private public" + "legal name" + "official name"
-
-
-        **Required Information to Find:**
-        - Ownership Type: Determine if this is Private, Public, or Government Sponsored Entity
-        - Legal Name: The official legal name of the entity
-        - Address: The complete registered business address
-        - Address Type: Specify if this is a Company address or Individual address
-
-        {WebTools.formatting_instructions}
-
-        Please search for this information using web search and provide citations with URLs for all sources found."""
         
-        logger.info(f"get_company_identity_info completed for company: {company_name}")
-        return result
+        # Return a clear, specific search request
+        return f"""EXECUTE SEARCH: Find comprehensive company identity information for {company_name}
+
+Search for these specific details:
+1. Official legal name and registered name
+2. Ownership type (Private/Public/Government Sponsored Entity)
+3. Complete registered business address with city, state, country
+4. Address classification (Company address vs Individual address)
+
+Format the results as:
+
+#### {company_name} Identity Information
+##### Company Details
+- **Legal Name:** [Found legal name]
+- **Ownership Type:** [Private/Public/Government Sponsored Entity]
+- **Address:** [Complete business address]
+- **Address Type:** [Company address/Individual address]
+##### Sources
+- [List all sources with URLs]
+
+Use web search to find current information from official sources and business directories."""
+
 #         logger.info(f"get_company_identity_info completed for company: {company_name}")
 
 #     @staticmethod
@@ -195,47 +189,56 @@ class WebTools:
     async def get_financial_business_profile(
         company_name: Annotated[str, "The name of the company to research"]
     ) -> str:
-        """Get detailed financial and business profile for KYC risk assessment.
-                Retrieves comprehensive information about the company's business model, 
-        financial status, revenue sources, and industry classification for
-        thorough KYC risk evaluation.
-        
-        Args:
-            company_name: The name of the company to research
-            
-        Returns:
-            Comprehensive business and financial profile information
-        """
+        """Get detailed financial and business profile for KYC risk assessment."""
         logger.info(f"get_financial_business_profile called for company: {company_name}")
-        return f"""**SEARCH REQUEST**: Use bing_search to find a comprehensive financial and business profile for {company_name}
 
-**Search Queries to Use:**
-1. "{company_name}" + "annual revenue" + "business model" + "financial information"
-2. "{company_name}" + "funding sources" + "investors" + "revenue streams"
-3. "{company_name}" + "industry classification" + "NAICS code" + "publicly traded"
+        return f"""EXECUTE SEARCH: Find comprehensive financial and business profile for {company_name}
 
-**Required Information to Find:**
-- Business Structure: 
-  - Publicly Traded: Yes/No
-  - Stock Ticker & Exchange (if applicable)
-  - Legal Entity Type
-  - Country of Incorporation & Headquarters
-  
-- Financial Profile:
-  - Estimated Annual Revenue
-  - Primary Revenue Sources
-  - Business Model Description
-  - Major Clients/Customers
-  - Investment/Funding Sources
-  - Asset Base
-  
-- Industry Information:
-  - NAICS Code/Industry Classification
-  - Primary Business Sector
+Search for these specific details:
+1. Annual revenue and financial statements
+2. Public/private status and stock information
+3. Funding sources and major investors
+4. Business model and revenue streams
+5. Industry classification and market position
+6. Legal entity structure and incorporation details
+7. NAICS code and industry classification
+8. Operating vs non-operating entity status
 
-{WebTools.formatting_instructions}
+Format the results as:
 
-Please search annual reports, SEC filings, investor presentations, business news, and financial databases. Provide citations for all sources."""
+#### {company_name} Financial & Business Profile
+
+##### Financial Information
+- **Annual Revenue:** [Latest revenue figures]
+- **Public/Private Status:** [Publicly traded or private]
+- **Stock Information:** [Ticker, exchange if public - NYSE, NASDAQ, etc.]
+- **Funding Sources:** [Investment, loans, revenue-funded]
+- **Major Investors:** [Key investors or funding sources]
+
+##### Business Model & Operations
+- **Primary Revenue Streams:** [How company makes money]
+- **Business Model Type:** [SaaS, retail, manufacturing, etc.]
+- **Target Market:** [Customer base description]
+- **Key Products/Services:** [Main offerings]
+
+##### Industry & Legal Classification
+- **NAICS Code:** [North American Industry Classification System code]
+- **Industry Classification:** [Primary industry sector]
+- **Legal Entity Type:** [Corporation, Government Entity, Individual, or Sole Proprietor]
+- **Legal Entity is Non-Operating:** [Yes/No]
+- **Type of Non-Operating Entity:** [Disregarded Entity, Special Purpose Entity, Special Purpose Vehicle, Other, or Not Applicable]
+- **Country of Incorporation:** [Where entity was legally formed]
+- **Country of Headquarters:** [Where main operations are based]
+
+##### Market Position
+- **Market Position:** [Leader, emerging, niche, etc.]
+- **Competitive Landscape:** [Key competitors if available]
+
+##### Sources
+- [List all sources with URLs]
+
+Use web search to find current financial data from official sources, SEC filings, business registrations, and business news. Focus on official government databases for incorporation and legal entity information."""
+    
 
     @staticmethod
     @kernel_function(description="Identify specific high-risk or regulated business activities the company is engaged in from a predefined list for KYC risk categorization.")
@@ -255,44 +258,30 @@ Please search annual reports, SEC filings, investor presentations, business news
             Identified regulated or high-risk business activities
         """
         logger.info(f"get_regulated_activity_details called for company: {company_name}")
-        return f"""**SEARCH REQUEST**: Use bing_search to find about {company_name}'s business activities and operations. Based on your findings, identify which of the following regulated or high-risk activities the company is engaged in:
+        
+        return f"""EXECUTE SEARCH: Identify regulated or high-risk business activities for {company_name}
 
-**Regulated/High-Risk Business Activity Categories:**
-- Money Services Business (MSB)
-- Currency Exchange
-- Virtual Currency Exchange
-- Prepaid Access Programs
-- Stored Value Facilities
-- Electronic Money Issuers
-- Payment Processing Services
-- Crowdfunding Platforms
-- Peer-to-Peer Lending
-- Factoring
-- Asset Management
-- Investment Advisory
-- Underwriting
-- Credit Rating Agencies
-- Insurance
-- Gambling
-- Real Estate
-- Precious Metals and Stones Dealers
-- Art Dealers
-- Auction Houses
-- Notaries
-- Trust and Company Service Providers
-- High-Value Goods Dealers
-- Other (specify)
+Search for these specific details:
+1. Money services business licenses and FinCEN registrations
+2. Financial services licenses and regulatory oversight
+3. Gaming, gambling, or casino operations licenses
+4. Cryptocurrency or virtual currency activities
+5. Precious metals, jewelry, or high-value goods dealing
 
-**Required Information:**
-- Primary Regulated Activities: Main regulated activities the company engages in
-- Secondary Regulated Activities: Any additional regulated business lines or services
-- Industry Classification: How the company classifies itself
-- Licenses and Permits: Any special licenses that indicate specific regulated activities
-- Products and Services: Detailed description of what the company offers
+Format the results as:
 
-{WebTools.formatting_instructions}
+#### {company_name} Regulated Activity Analysis
+##### Identified Regulated Activities
+- **Category:** [Financial Services/Gaming/High-Value Goods/etc.]
+- **Specific Activity:** [Exact regulated activity identified]
+- **License/Registration:** [Any licenses or registrations found]
+- **Regulatory Body:** [Which regulator oversees this activity]
+##### Risk Assessment
+- **Risk Level:** [High/Medium/Low based on activities found]
+##### Sources
+- [List all sources with URLs]
 
-Please search the company website, business registrations, regulatory filings, industry databases, and news sources. Match the company's activities to the specific regulated categories listed above. If the company engages in multiple activities, list all applicable ones. Provide citations for all sources."""
+Use web search to find information from regulatory databases, license registries, and business filings."""
 
     @classmethod
     def get_all_kernel_functions(cls) -> dict[str, Callable]:
@@ -316,6 +305,35 @@ Please search the company website, business registrations, regulatory filings, i
 
         return kernel_functions
 
+    # @staticmethod
+    # @kernel_function(description="Search using BingGroundingTool to find the requested information.")
+    # async def bing_search(
+    #     query: Annotated[str, "The search query to use for finding information"]
+    # ) -> str:
+    #     """Perform a Bing search to find information based on the provided query.
+        
+    #     This function uses the BingGroundingTool to search for information related
+    #     to the specified query and returns the results.
+        
+    #     Args:
+    #         query: The search query to use
+            
+    #     Returns:
+    #         Search results from Bing
+    #     """
+    #     print(f"FUNCTION CALLED: bing_search with query: {query}")
+    #     logger.info(f"bing_search called with query: {query}")
+    #     try:
+    #         bing_tool = await config.get_bing_tool()
+    #         if bing_tool is None:
+    #             raise ValueError("BingGroundingTool is not configured or available.")
+    #         # Perform the search using the BingGroundingTool
+    #         results = await bing_tool.search(query)
+    #         return results
+    #     except Exception as e:
+    #         logger.error(f"Error during Bing search: {e}")
+    #         return "Error occurred during search."
+    
     @classmethod
     def generate_tools_json_doc(cls) -> str:
         """
